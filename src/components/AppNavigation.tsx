@@ -30,7 +30,9 @@ const NAV_ITEMS = [
   { text: 'Counter', href: '/counter', icon: <AddCircleOutlineIcon /> },
   { text: 'To-Do List', href: '/todo', icon: <CheckCircleOutlineIcon /> },
   { text: 'Exchange Rates', href: '/exchange-rates', icon: <AttachMoneyIcon /> },
-  { text: 'Bybit Tickers', href: '/bybit-tickers', icon: <ShowChartIcon /> }, // New Menu Item
+  { text: 'Bybit Spot', href: '/bybit-spot-tickers', icon: <ShowChartIcon /> },
+  { text: 'Bybit Linear', href: '/bybit-linear-tickers', icon: <ShowChartIcon /> },
+  { text: 'Bybit Inverse', href: '/bybit-inverse-tickers', icon: <ShowChartIcon /> },
 ];
 
 const DRAWER_WIDTH = 240;

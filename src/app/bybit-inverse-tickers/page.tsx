@@ -48,10 +48,10 @@ interface BybitApiResponse {
   time: number;
 }
 
-const API_ENDPOINT = 'https://api.bybit.com/v5/market/tickers?category=spot';
+const API_ENDPOINT = 'https://api.bybit.com/v5/market/tickers?category=inverse'; // Changed to inverse
 const REFRESH_INTERVAL = 1000; // 1 second
 
-export default function BybitTickersPage() {
+export default function BybitInverseTickersPage() { // Renamed function
   const [tickers, setTickers] = useState<BybitTicker[]>([]);
   const [loading, setLoading] = useState(true); // For initial load
   const [error, setError] = useState<string | null>(null);
@@ -81,13 +81,10 @@ export default function BybitTickersPage() {
               storedPercentageString = actualPercentage.toFixed(2);
             }
           } else {
-            // Handle cases where price24hPcnt might be empty or not a number from API
-            // For now, let's try to see if a sign should be prepended to the original if it was non-numeric but parsable initially
-            // This else block might need more robust handling based on API behavior for invalid data
             if (apiTicker.price24hPcnt && !apiTicker.price24hPcnt.startsWith('-') && !apiTicker.price24hPcnt.startsWith('+')){
                 storedPercentageString = `+${apiTicker.price24hPcnt}`;
             } else {
-                storedPercentageString = apiTicker.price24hPcnt || "+0.00"; // Fallback for empty string
+                storedPercentageString = apiTicker.price24hPcnt || "+0.00"; 
             }
           }
 
@@ -96,7 +93,7 @@ export default function BybitTickersPage() {
             price24hPcnt: storedPercentageString,
           };
         });
-        const sortedTickers = processedTickers.sort((a, b) => a.symbol.localeCompare(b.symbol));
+        const sortedTickers = processedTickers.sort((a, b) => parseFloat(b.turnover24h) - parseFloat(a.turnover24h));
         setTickers(sortedTickers);
         setError(null);
       } else {
@@ -143,7 +140,7 @@ export default function BybitTickersPage() {
     <Container maxWidth="lg">
       <Paper sx={{ padding: { xs: 2, sm: 3 }, marginY: 2 }}>
         <Typography variant="h4" component="h1" gutterBottom align="center">
-          Bybit Spot Market Tickers (Live & Sorted)
+          Bybit Inverse Market Tickers (Live & Sorted by Turnover) {/* Changed title */}
         </Typography>
 
         {error && (
@@ -154,7 +151,7 @@ export default function BybitTickersPage() {
 
         <Box sx={{ marginBottom: 3, display: 'flex', justifyContent: 'center' }}>
           <TextField
-            label="Search Symbol (e.g., BTCUSDT)"
+            label="Search Symbol (e.g., BTCUSD)"
             variant="outlined"
             value={searchTerm}
             onChange={handleSearchChange}
@@ -171,18 +168,16 @@ export default function BybitTickersPage() {
         {filteredTickers.length > 0 && (
           <List sx={{ maxHeight: 600, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 1, p:0 }}>
             {filteredTickers.map((ticker, index) => {
-              const storedPercentageStr = ticker.price24hPcnt; // e.g., "+5.23", "-2.10", "+0.00"
+              const storedPercentageStr = ticker.price24hPcnt; 
               const numericPercentage = parseFloat(storedPercentageStr);
               
-              let displayColor = 'text.secondary'; // Default for zero
+              let displayColor = 'text.secondary'; 
               if (numericPercentage > 0) {
                 displayColor = 'success.main';
               } else if (numericPercentage < 0) {
                 displayColor = 'error.main';
               }
 
-              // The stored string is already the correct percentage value with sign and 2 decimal places.
-              // We just need to append '%'.
               const displayText = `${storedPercentageStr}%`;
 
               return (
