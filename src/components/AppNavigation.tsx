@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useTheme, Theme } from '@mui/material/styles'; // Import Theme type
+import { useTheme, Theme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import Box from '@mui/material/Box';
 import AppBar from '@mui/material/AppBar';
@@ -21,6 +21,7 @@ import HomeIcon from '@mui/icons-material/Home';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
+import ShowChartIcon from '@mui/icons-material/ShowChart'; // Added for Bybit Tickers
 import { useRouter, usePathname } from 'next/navigation';
 import { useNavigationStore } from '@/stores/navigationStore';
 
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { text: 'Counter', href: '/counter', icon: <AddCircleOutlineIcon /> },
   { text: 'To-Do List', href: '/todo', icon: <CheckCircleOutlineIcon /> },
   { text: 'Exchange Rates', href: '/exchange-rates', icon: <AttachMoneyIcon /> },
+  { text: 'Bybit Tickers', href: '/bybit-tickers', icon: <ShowChartIcon /> }, // New Menu Item
 ];
 
 const DRAWER_WIDTH = 240;
@@ -38,7 +40,7 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
   const pathname = usePathname();
-  const { isDrawerOpen, toggleDrawer, closeDrawer, openDrawer } = useNavigationStore();
+  const { isDrawerOpen, toggleDrawer, closeDrawer } = useNavigationStore(); // Removed openDrawer as it's not used
 
   const [mobileNavValue, setMobileNavValue] = React.useState(pathname);
 
@@ -46,12 +48,20 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
     const currentItem = NAV_ITEMS.find(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)));
     if (currentItem) {
       setMobileNavValue(currentItem.href);
+    } else {
+      // If no exact match (e.g. a sub-route not in NAV_ITEMS), find the closest parent
+      const parentItem = NAV_ITEMS.find(item => item.href !== '/' && pathname.startsWith(item.href));
+      if (parentItem) {
+        setMobileNavValue(parentItem.href);
+      } else if (pathname === '/') {
+        setMobileNavValue('/');
+      }
     }
   }, [pathname]);
 
   const handleNavigation = (href: string) => {
     router.push(href);
-    if (isMobile) {
+    if (isMobile) { // Only close drawer if it's a temporary mobile one (if implemented)
         closeDrawer(); 
     }
   };
@@ -60,6 +70,8 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
     <Box
       sx={{ width: DRAWER_WIDTH }}
       role="presentation"
+      // onClick={isMobile ? toggleDrawer : undefined} // Example for temporary mobile drawer
+      // onKeyDown={isMobile ? toggleDrawer : undefined}
     >
       <Toolbar /> 
       <List>
@@ -87,8 +99,8 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
           ml: isMobile ? 0 : `${DRAWER_WIDTH}px`,
           top: isMobile ? 'auto' : 0,
           bottom: isMobile ? 0 : 'auto',
-          backgroundColor: theme.palette.background.paper, // Ensure this is a valid color string
-          zIndex: (theme: Theme) => theme.zIndex.drawer + (isMobile? 0 : 1) // Desktop AppBar above drawer
+          backgroundColor: theme.palette.background.paper,
+          zIndex: (theme: Theme) => theme.zIndex.drawer + (isMobile? 0 : 1) 
         }}
       >
         {isMobile ? (
@@ -105,6 +117,18 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
           </BottomNavigation>
         ) : (
           <Toolbar>
+            {/* Hamburger for temporary mobile drawer, if implemented */}
+            {/* {isMobile && (
+              <IconButton
+                color="inherit"
+                aria-label="open drawer"
+                edge="start"
+                onClick={toggleDrawer} // Only if mobile drawer is temporary, not persistent
+                sx={{ mr: 2 }}
+              >
+                <MenuIcon />
+              </IconButton>
+            )} */}
             <Typography variant="h6" noWrap component="div">
               {NAV_ITEMS.find(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)))?.text || 'App'}
             </Typography>
@@ -115,7 +139,7 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
       {!isMobile && (
         <Drawer
           variant="persistent"
-          open={true}
+          open={true} // Persistent drawer is always open on desktop
           sx={{
             width: DRAWER_WIDTH,
             flexShrink: 0,
@@ -129,43 +153,17 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
         </Drawer>
       )}
       
-      {/* Mobile only: A way to open the drawer if needed, e.g. for more items not fitting in BottomNav */}
-      {/* This is not in current design but illustrates how toggleDrawer could be used */}
-      {/* {isMobile && (
-        <AppBar position="fixed" sx={{top: 0, bottom: 'auto'}}>
-            <Toolbar>
-                <IconButton color="inherit" aria-label="open drawer" edge="start" onClick={toggleDrawer}>
-                    <MenuIcon />
-                </IconButton>
-                <Typography variant="h6" noWrap component="div">
-                    {NAV_ITEMS.find(item => pathname.startsWith(item.href))?.text || 'App'}
-                </Typography>
-            </Toolbar>
-        </AppBar>
-      )} 
-      <Drawer // Mobile drawer
-        anchor="left"
-        open={isDrawerOpen && isMobile} 
-        onClose={closeDrawer}
-        ModalProps={{
-            keepMounted: true, // Better open performance on mobile.
-        }}
-        sx={{display: { xs: 'block', sm: 'none' }}}
-      >
-        {drawerContent} 
-      </Drawer> */} 
-
+      {/* Main Content Box */}
       <Box 
         component="main" 
         sx={{
           flexGrow: 1, 
           p: 3, 
           width: isMobile? '100%' : `calc(100% - ${DRAWER_WIDTH}px)`,
-          marginTop: isMobile ? 0 : `64px`, // AppBar height on desktop
-          marginBottom: isMobile ? `56px` : 0, // BottomNavigation height on mobile
+          marginTop: isMobile ? 0 : `64px`, // Desktop AppBar height
+          marginBottom: isMobile ? `56px` : 0, // Mobile BottomNavigation height
         }}
       >
-        {/* Toolbar spacer was here, removed because main content padding should handle it */}
         {children}
       </Box>
     </Box>

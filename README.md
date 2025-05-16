@@ -1,9 +1,16 @@
-# Next.js Feature Implementation Project
+# 서비스
+
+### Ticker
+1. ticker 정보 확보시 change값이 양수 or 0인 경우 +와 함께 저장, change percent 정보는 %단위의 숫자로 저장 : ex. 0.23% -> 0.23, 90% -> +90.00
+2. 
+
 
 This project implements a simple application with the following features:
 1.  서비스 단순 설명 (Service Description)
 2.  Counter
 3.  To-Do List
+
+# 상세
 
 ## 1. 핵심 기술 스택 및 환경
 
