@@ -24,7 +24,7 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
-import InfoIcon from '@mui/icons-material/Info';
+// import InfoIcon from '@mui/icons-material/Info'; // Service Description 아이콘이므로 제거
 
 import { useRouter, usePathname } from 'next/navigation';
 import { useNavigationStore, NavLink } from '@/stores/navigationStore';
@@ -32,7 +32,7 @@ import { useNavigationStore, NavLink } from '@/stores/navigationStore';
 const DRAWER_WIDTH = 240;
 
 const getIconForLink = (label: string): React.ReactNode => {
-  if (label === 'Service Description') return <InfoIcon />;
+  // if (label === 'Service Description') return <InfoIcon />;
   if (label === 'Counter') return <AddCircleOutlineIcon />;
   if (label === 'Todo List') return <CheckCircleOutlineIcon />;
   if (label === 'Exchange Rates') return <AttachMoneyIcon />;

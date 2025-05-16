@@ -6,9 +6,10 @@
 
 
 This project implements a simple application with the following features:
-1.  서비스 단순 설명 (Service Description)
-2.  Counter
-3.  To-Do List
+1.  Counter
+2.  To-Do List
+3.  Exchange Rates
+4.  Tickers
 
 # 상세
 

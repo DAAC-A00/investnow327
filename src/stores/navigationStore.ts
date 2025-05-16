@@ -22,7 +22,7 @@ const initialNavLinks: NavLink[] = [
   { label: 'Exchange Rates', path: '/exchange-rates' },
   { label: 'Tickers', path: '/tickers' }, // New Tickers Hub Page
   // The "More" menu and its children are removed as per the new structure
-  { label: 'Service Description', path: '/service-description' },
+  // { label: 'Service Description', path: '/service-description' }, // 미사용 메뉴 제거
 ];
 
 export const useNavigationStore = create<NavigationState>((set) => ({
