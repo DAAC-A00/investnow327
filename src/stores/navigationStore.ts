@@ -5,7 +5,7 @@ import { create } from 'zustand';
 export interface NavLink {
   label: string;
   path: string;
-  children?: NavLink[];
+  children?: NavLink[]; // Kept for potential future nesting, but not used for Tickers now
 }
 
 interface NavigationState {
@@ -20,22 +20,8 @@ const initialNavLinks: NavLink[] = [
   { label: 'Counter', path: '/counter' },
   { label: 'Todo List', path: '/todo' },
   { label: 'Exchange Rates', path: '/exchange-rates' },
-  {
-    label: 'More',
-    path: '#', // Main link for More
-    children: [
-      {
-        label: 'Tickers',
-        path: '#', // Sub-menu for Tickers
-        children: [
-          { label: 'Spot', path: '/bybit-spot-tickers' },
-          { label: 'Linear', path: '/bybit-linear-tickers' },
-          { label: 'Inverse', path: '/bybit-inverse-tickers' },
-        ],
-      },
-      // Future items under "More" can be added here
-    ],
-  },
+  { label: 'Tickers', path: '/tickers' }, // New Tickers Hub Page
+  // The "More" menu and its children are removed as per the new structure
   { label: 'Service Description', path: '/service-description' },
 ];
 

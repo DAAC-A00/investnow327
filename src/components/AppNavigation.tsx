@@ -9,6 +9,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Added for back button
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -17,74 +18,59 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
 import BottomNavigation from '@mui/material/BottomNavigation';
 import BottomNavigationAction from '@mui/material/BottomNavigationAction';
+import Paper from '@mui/material/Paper';
 import HomeIcon from '@mui/icons-material/Home';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
-import ShowChartIcon from '@mui/icons-material/ShowChart'; // Added for Bybit Tickers
-import { useRouter, usePathname } from 'next/navigation';
-import { useNavigationStore } from '@/stores/navigationStore';
+import ShowChartIcon from '@mui/icons-material/ShowChart';
+import InfoIcon from '@mui/icons-material/Info';
 
-const NAV_ITEMS = [
-  { text: 'Service Description', href: '/', icon: <HomeIcon /> },
-  { text: 'Counter', href: '/counter', icon: <AddCircleOutlineIcon /> },
-  { text: 'To-Do List', href: '/todo', icon: <CheckCircleOutlineIcon /> },
-  { text: 'Exchange Rates', href: '/exchange-rates', icon: <AttachMoneyIcon /> },
-  { text: 'Bybit Spot', href: '/bybit-spot-tickers', icon: <ShowChartIcon /> },
-  { text: 'Bybit Linear', href: '/bybit-linear-tickers', icon: <ShowChartIcon /> },
-  { text: 'Bybit Inverse', href: '/bybit-inverse-tickers', icon: <ShowChartIcon /> },
-];
+import { useRouter, usePathname } from 'next/navigation';
+import { useNavigationStore, NavLink } from '@/stores/navigationStore';
 
 const DRAWER_WIDTH = 240;
+
+const getIconForLink = (label: string): React.ReactNode => {
+  if (label === 'Service Description') return <InfoIcon />;
+  if (label === 'Counter') return <AddCircleOutlineIcon />;
+  if (label === 'Todo List') return <CheckCircleOutlineIcon />;
+  if (label === 'Exchange Rates') return <AttachMoneyIcon />;
+  if (label === 'Tickers') return <ShowChartIcon />;
+  return <HomeIcon />;
+};
 
 export default function AppNavigation({ children }: { children: React.ReactNode }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
   const pathname = usePathname();
-  const { isDrawerOpen, toggleDrawer, closeDrawer } = useNavigationStore(); // Removed openDrawer as it's not used
+  const { isDrawerOpen, toggleDrawer, closeDrawer, navLinks } = useNavigationStore();
 
-  const [mobileNavValue, setMobileNavValue] = React.useState(pathname);
+  const isDetailPage = pathname.startsWith('/bybit-spot-tickers') || 
+                       pathname.startsWith('/bybit-linear-tickers') || 
+                       pathname.startsWith('/bybit-inverse-tickers');
 
-  React.useEffect(() => {
-    const currentItem = NAV_ITEMS.find(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)));
-    if (currentItem) {
-      setMobileNavValue(currentItem.href);
-    } else {
-      // If no exact match (e.g. a sub-route not in NAV_ITEMS), find the closest parent
-      const parentItem = NAV_ITEMS.find(item => item.href !== '/' && pathname.startsWith(item.href));
-      if (parentItem) {
-        setMobileNavValue(parentItem.href);
-      } else if (pathname === '/') {
-        setMobileNavValue('/');
-      }
-    }
-  }, [pathname]);
-
-  const handleNavigation = (href: string) => {
-    router.push(href);
-    if (isMobile) { // Only close drawer if it's a temporary mobile one (if implemented)
-        closeDrawer(); 
+  const handleNavigate = (path: string) => {
+    if (path === '#') return; 
+    router.push(path);
+    if (isMobile) {
+      closeDrawer();
     }
   };
 
   const drawerContent = (
-    <Box
-      sx={{ width: DRAWER_WIDTH }}
-      role="presentation"
-      // onClick={isMobile ? toggleDrawer : undefined} // Example for temporary mobile drawer
-      // onKeyDown={isMobile ? toggleDrawer : undefined}
-    >
+    <Box sx={{ width: DRAWER_WIDTH }} role="presentation">
       <Toolbar /> 
       <List>
-        {NAV_ITEMS.map((item) => (
-          <ListItem key={item.text} disablePadding>
+        {navLinks.map((item) => (
+          <ListItem key={item.label} disablePadding>
             <ListItemButton 
-              onClick={() => handleNavigation(item.href)} 
-              selected={pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))}
+              onClick={() => handleNavigate(item.path)} 
+              selected={pathname === item.path || (item.path === '/tickers' && isDetailPage)}
             >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemIcon>{getIconForLink(item.label)}</ListItemIcon>
+              <ListItemText primary={item.label} />
             </ListItemButton>
           </ListItem>
         ))}
@@ -92,81 +78,108 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
     </Box>
   );
 
+  let currentPageLabel = 'IDX Dashboard'; 
+  if (isDetailPage) {
+    if (pathname.startsWith('/bybit-spot-tickers')) {
+      currentPageLabel = 'Bybit Spot Tickers';
+    } else if (pathname.startsWith('/bybit-linear-tickers')) {
+      currentPageLabel = 'Bybit Linear Tickers';
+    } else if (pathname.startsWith('/bybit-inverse-tickers')) {
+      currentPageLabel = 'Bybit Inverse Tickers';
+    }
+  } else {
+    const activeLink = navLinks.find(item => item.path === pathname);
+    if (activeLink) {
+      currentPageLabel = activeLink.label;
+    } else if (pathname === '/') {
+      const homeLink = navLinks.find(item => item.path === '/');
+      currentPageLabel = homeLink ? homeLink.label : 'Dashboard';
+    }
+  }
+  
+  let bottomNavValue = navLinks.findIndex(item => 
+    pathname === item.path || (item.path === '/tickers' && isDetailPage)
+  );
+  if (bottomNavValue === -1 && pathname !== '/') bottomNavValue = 0; 
+
   return (
     <Box sx={{ display: 'flex' }}>
-      <AppBar 
-        position="fixed" 
-        sx={{
-          width: isMobile ? '100%' : `calc(100% - ${DRAWER_WIDTH}px)`,
-          ml: isMobile ? 0 : `${DRAWER_WIDTH}px`,
-          top: isMobile ? 'auto' : 0,
-          bottom: isMobile ? 0 : 'auto',
-          backgroundColor: theme.palette.background.paper,
-          zIndex: (theme: Theme) => theme.zIndex.drawer + (isMobile? 0 : 1) 
-        }}
-      >
-        {isMobile ? (
-          <BottomNavigation
-            showLabels
-            value={mobileNavValue}
-            onChange={(event, newValue) => {
-              handleNavigation(newValue);
-            }}
-          >
-            {NAV_ITEMS.map((item) => (
-              <BottomNavigationAction key={item.text} label={item.text} value={item.href} icon={item.icon} />
-            ))}
-          </BottomNavigation>
-        ) : (
-          <Toolbar>
-            {/* Hamburger for temporary mobile drawer, if implemented */}
-            {/* {isMobile && (
-              <IconButton
-                color="inherit"
-                aria-label="open drawer"
-                edge="start"
-                onClick={toggleDrawer} // Only if mobile drawer is temporary, not persistent
-                sx={{ mr: 2 }}
-              >
-                <MenuIcon />
-              </IconButton>
-            )} */}
-            <Typography variant="h6" noWrap component="div">
-              {NAV_ITEMS.find(item => pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href)))?.text || 'App'}
-            </Typography>
-          </Toolbar>
-        )}
+      <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }}>
+        <Toolbar>
+          {isDetailPage ? (
+            <IconButton
+              color="inherit"
+              aria-label="go back"
+              edge="start"
+              onClick={() => router.back()}
+              sx={{ mr: 2 }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+          ) : (
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={toggleDrawer}
+              sx={{ mr: 2 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+          <Typography variant="h6" noWrap component="div">
+            {currentPageLabel}
+          </Typography>
+        </Toolbar>
       </AppBar>
-
-      {!isMobile && (
+      {!isDetailPage && (
         <Drawer
-          variant="persistent"
-          open={true} // Persistent drawer is always open on desktop
+          variant={isMobile ? 'temporary' : 'permanent'}
+          open={isDrawerOpen}
+          onClose={closeDrawer}
+          ModalProps={{ keepMounted: true }}
           sx={{
             width: DRAWER_WIDTH,
             flexShrink: 0,
-            [`& .MuiDrawer-paper`]: { 
-              width: DRAWER_WIDTH, 
-              boxSizing: 'border-box', 
-            },
+            [`& .MuiDrawer-paper`]: { width: DRAWER_WIDTH, boxSizing: 'border-box' },
           }}
         >
           {drawerContent}
         </Drawer>
       )}
-      
-      {/* Main Content Box */}
-      <Box 
+       <Box 
         component="main" 
         sx={{
           flexGrow: 1, 
           p: 3, 
-          width: isMobile? '100%' : `calc(100% - ${DRAWER_WIDTH}px)`,
-          marginTop: isMobile ? 0 : `64px`, // Desktop AppBar height
-          marginBottom: isMobile ? `56px` : 0, // Mobile BottomNavigation height
+          width: { sm: !isDetailPage ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%' },
+          marginLeft: { sm: !isDetailPage ? `${DRAWER_WIDTH}px` : 0 }, // Adjust margin when drawer is hidden
         }}
       >
+        <Toolbar />  
         {children}
+        {isMobile && !isDetailPage && (
+          <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }} elevation={3}>
+            <BottomNavigation
+              showLabels
+              value={bottomNavValue >=0 ? bottomNavValue : 0} 
+              onChange={(event, newValue) => {
+                const selectedLink = navLinks[newValue];
+                if (selectedLink) {
+                  handleNavigate(selectedLink.path);
+                }
+              }}
+            >
+              {navLinks.map((item) => (
+                <BottomNavigationAction 
+                  key={item.label} 
+                  label={item.label} 
+                  icon={getIconForLink(item.label)} 
+                />
+              ))}
+            </BottomNavigation>
+          </Paper>
+        )}
       </Box>
     </Box>
   );
