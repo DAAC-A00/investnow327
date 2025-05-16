@@ -3,7 +3,7 @@
 import React from 'react';
 import { Container, Typography, Paper, Box } from '@mui/material';
 
-export default function HomePage() {
+export default function ServiceDescriptionPage() {
   return (
     <Container maxWidth="md">
       <Paper sx={{ padding: 3, marginY: 2 }}>
@@ -38,3 +38,8 @@ export default function HomePage() {
     </Container>
   );
 }
+
+// Replace the existing content of src/app/page.tsx with this
+// if you want the service description to be the home page.
+// For now, this will be available at /service-description route.
+// We will make this the root page shortly.
