@@ -78,7 +78,7 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
     </Box>
   );
 
-  let currentPageLabel = 'IDX Dashboard'; 
+  let currentPageLabel = ' '; 
   if (isDetailPage) {
     if (pathname.startsWith('/bybit-spot-tickers')) {
       currentPageLabel = 'Bybit Spot Tickers';
