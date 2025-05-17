@@ -50,11 +50,11 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
         let priceEffect: 'up' | 'down' | 'flat' | undefined = undefined;
 
         if (prevTicker && prevTicker.lastPrice && currentTicker.lastPrice) {
-          const prevPrice = parseFloat(prevTicker.lastPrice);
-          const currentPrice = parseFloat(currentTicker.lastPrice);
-          if (currentPrice > prevPrice) {
+          const prevPriceNum = parseFloat(prevTicker.lastPrice);
+          const currentPriceNum = parseFloat(currentTicker.lastPrice);
+          if (currentPriceNum > prevPriceNum) {
             priceEffect = 'up';
-          } else if (currentPrice < prevPrice) {
+          } else if (currentPriceNum < prevPriceNum) {
             priceEffect = 'down';
           } else {
             priceEffect = 'flat';
@@ -68,7 +68,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
       const newPrevTickersMap = new Map<string, DisplayTicker>();
       newDisplayTickers.forEach(ticker => {
         newPrevTickersMap.set(ticker.symbol, ticker);
-        if (ticker.priceEffect) {
+        if (ticker.priceEffect === 'up' || ticker.priceEffect === 'down') { // Only set timeout for up/down
           const existingTimeout = timeoutRef.current.get(ticker.symbol);
           if (existingTimeout) {
             clearTimeout(existingTimeout);
@@ -76,7 +76,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
           const newTimeout = setTimeout(() => {
             setTickers(prev => 
               prev.map(t => 
-                t.symbol === ticker.symbol ? { ...t, priceEffect: undefined } : t
+                t.symbol === ticker.symbol ? { ...t, priceEffect: 'flat' } : t // Reset to flat after timeout
               )
             );
             timeoutRef.current.delete(ticker.symbol);
@@ -151,16 +151,16 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
         {filteredTickers.length > 0 && (
           <List sx={{ maxHeight: 600, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 0, p:0 }}>
             {filteredTickers.map((ticker, index) => {
-              const storedPercentageStr = ticker.price24hPcnt;
-              const numericPercentage = parseFloat(storedPercentageStr);
-              
-              let priceChangeTextColor = theme.palette.text.secondary; // Default to secondary text color (greyish)
-              if (numericPercentage > 0) priceChangeTextColor = theme.palette.success.main;
-              else if (numericPercentage < 0) priceChangeTextColor = theme.palette.error.main;
-              // If numericPercentage is 0, it remains theme.palette.text.secondary
+              const displayPercentText = `${ticker.price24hPcnt}%`;
+              const numeric24hChange = parseFloat(ticker.price24hPcnt);
 
-              const displayPercentText = `${storedPercentageStr}%`;
-              
+              let sharedTextColor = theme.palette.grey[700]; // Default to grey for 0% change
+              if (numeric24hChange > 0) {
+                sharedTextColor = theme.palette.success.main;
+              } else if (numeric24hChange < 0) {
+                sharedTextColor = theme.palette.error.main;
+              }
+
               const valueDisplayBaseSx = {
                 display: 'inline-block',
                 padding: '2px 4px',
@@ -168,22 +168,23 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                 borderStyle: 'solid',
                 borderColor: 'transparent',
                 borderRadius: 0, 
+                transition: 'color 0.1s ease-in-out', // Smooth color transition for text
               };
               
               const lastPriceValueSx = {
                 ...valueDisplayBaseSx,
-                transition: 'border-color 0.1s ease-in-out',
+                transition: 'border-color 0.1s ease-in-out, color 0.1s ease-in-out',
                 borderColor: ticker.priceEffect === 'up' 
                               ? theme.palette.success.main 
                               : ticker.priceEffect === 'down' 
                                 ? theme.palette.error.main 
-                                : valueDisplayBaseSx.borderColor, // Transparent for flat or undefined
-                // Text color for lastPrice remains inherit/default
+                                : valueDisplayBaseSx.borderColor, // Transparent for flat or after timeout
+                color: sharedTextColor, // Color based on 24h change
               };
               
               const changeValueSx = {
                 ...valueDisplayBaseSx,
-                color: priceChangeTextColor, // This now handles grey for 0% change
+                color: sharedTextColor, // Color based on 24h change
               };
 
               const dataItemContainerSx = (flexBasisMd = 'calc(20.83% - 8px)') => ({
