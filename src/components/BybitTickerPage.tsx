@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { BybitTicker } from '@/services/bybit/types';
 import { fetchBybitTickers } from '@/services/bybit/api';
+import { useSearchStore } from '@/stores/searchStore';
 
 const REFRESH_INTERVAL = 1000; // 1 second
 const PRICE_EFFECT_DURATION = 200; // 0.2 seconds
@@ -32,11 +33,15 @@ interface BybitTickerPageProps {
 }
 
 export default function BybitTickerPageComponent({ category, title }: BybitTickerPageProps) {
-  const theme = useTheme(); 
+  const theme = useTheme();
   const [tickers, setTickers] = useState<DisplayTicker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+
+  // Get the specific search term for this category and the setter function
+  const searchTerm = useSearchStore((state) => state.searchTerms[category]);
+  const setSearchTermForCategory = useSearchStore((state) => state.setSearchTerm);
+
   const prevTickersRef = useRef<Map<string, DisplayTicker>>(new Map());
   const timeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -68,7 +73,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
       const newPrevTickersMap = new Map<string, DisplayTicker>();
       newDisplayTickers.forEach(ticker => {
         newPrevTickersMap.set(ticker.symbol, ticker);
-        if (ticker.priceEffect === 'up' || ticker.priceEffect === 'down') { // Only set timeout for up/down
+        if (ticker.priceEffect === 'up' || ticker.priceEffect === 'down') { 
           const existingTimeout = timeoutRef.current.get(ticker.symbol);
           if (existingTimeout) {
             clearTimeout(existingTimeout);
@@ -76,7 +81,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
           const newTimeout = setTimeout(() => {
             setTickers(prev => 
               prev.map(t => 
-                t.symbol === ticker.symbol ? { ...t, priceEffect: 'flat' } : t // Reset to flat after timeout
+                t.symbol === ticker.symbol ? { ...t, priceEffect: 'flat' } : t
               )
             );
             timeoutRef.current.delete(ticker.symbol);
@@ -107,12 +112,13 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
   }, [fetchData]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchTerm(event.target.value.toUpperCase());
+    setSearchTermForCategory(category, event.target.value.toUpperCase());
   };
 
   const filteredTickers = useMemo(() => {
-    if (!searchTerm) return tickers;
-    return tickers.filter(ticker => ticker.symbol.toUpperCase().includes(searchTerm));
+    const currentSearchTerm = searchTerm || ''; // Ensure searchTerm is not undefined
+    if (!currentSearchTerm) return tickers;
+    return tickers.filter(ticker => ticker.symbol.toUpperCase().includes(currentSearchTerm));
   }, [tickers, searchTerm]);
 
   if (loading && tickers.length === 0) { 
@@ -136,7 +142,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
           <TextField
             label={`Search Symbol (e.g., ${category === 'inverse' ? 'BTCUSD' : 'BTCUSDT'})`}
             variant="outlined"
-            value={searchTerm}
+            value={searchTerm || ''} // Ensure value is not undefined
             onChange={handleSearchChange}
             sx={{ minWidth: {xs: '100%', sm: 300, md: 400} }}
           />
@@ -154,7 +160,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
               const displayPercentText = `${ticker.price24hPcnt}%`;
               const numeric24hChange = parseFloat(ticker.price24hPcnt);
 
-              let sharedTextColor = theme.palette.grey[700]; // Default to grey for 0% change
+              let sharedTextColor = theme.palette.grey[700];
               if (numeric24hChange > 0) {
                 sharedTextColor = theme.palette.success.main;
               } else if (numeric24hChange < 0) {
@@ -168,7 +174,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                 borderStyle: 'solid',
                 borderColor: 'transparent',
                 borderRadius: 0, 
-                transition: 'color 0.1s ease-in-out', // Smooth color transition for text
+                transition: 'color 0.1s ease-in-out',
               };
               
               const lastPriceValueSx = {
@@ -178,13 +184,13 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                               ? theme.palette.success.main 
                               : ticker.priceEffect === 'down' 
                                 ? theme.palette.error.main 
-                                : valueDisplayBaseSx.borderColor, // Transparent for flat or after timeout
-                color: sharedTextColor, // Color based on 24h change
+                                : valueDisplayBaseSx.borderColor, 
+                color: sharedTextColor, 
               };
               
               const changeValueSx = {
                 ...valueDisplayBaseSx,
-                color: sharedTextColor, // Color based on 24h change
+                color: sharedTextColor, 
               };
 
               const dataItemContainerSx = (flexBasisMd = 'calc(20.83% - 8px)') => ({
@@ -214,12 +220,10 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                         gap: 1,
                       }}
                     >
-                      {/* Symbol */}
                       <Box sx={{ ...dataItemContainerSx('calc(16.66% - 8px)'), pr:1 }}>
                           <Typography variant="subtitle1" sx={{fontWeight: 'bold'}}>{ticker.symbol}</Typography>
                       </Box>
                       
-                      {/* Last Price */}
                       <Box sx={dataItemContainerSx()}> 
                           <ListItemText 
                             primaryTypographyProps={{variant:'caption', color:'text.secondary'}}
@@ -232,7 +236,6 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                           />
                       </Box>
 
-                      {/* 24h Change */}
                       <Box sx={dataItemContainerSx()}>
                           <ListItemText 
                             primaryTypographyProps={{variant:'caption', color:'text.secondary'}}
@@ -245,7 +248,6 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                           />
                       </Box>
 
-                      {/* 24h Volume */}
                       <Box sx={dataItemContainerSx()}>
                           <ListItemText 
                             primaryTypographyProps={{variant:'caption', color:'text.secondary'}}
@@ -258,7 +260,6 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                           />
                       </Box>
 
-                      {/* 24h Turnover */}
                        <Box sx={dataItemContainerSx('calc(20.83% - 8px)')}>
                           <ListItemText 
                             primaryTypographyProps={{variant:'caption', color:'text.secondary'}}
