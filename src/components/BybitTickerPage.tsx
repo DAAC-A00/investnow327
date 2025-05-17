@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import {
   Container,
   Typography,
@@ -22,7 +23,7 @@ const REFRESH_INTERVAL = 1000; // 1 second
 const PRICE_EFFECT_DURATION = 200; // 0.2 seconds
 
 interface DisplayTicker extends BybitTicker {
-  priceEffect?: 'up' | 'down';
+  priceEffect?: 'up' | 'down' | 'flat';
 }
 
 interface BybitTickerPageProps {
@@ -46,7 +47,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
       
       const newDisplayTickers = currentTickers.map(currentTicker => {
         const prevTicker = prevTickersRef.current.get(currentTicker.symbol);
-        let priceEffect: 'up' | 'down' | undefined = undefined;
+        let priceEffect: 'up' | 'down' | 'flat' | undefined = undefined;
 
         if (prevTicker && prevTicker.lastPrice && currentTicker.lastPrice) {
           const prevPrice = parseFloat(prevTicker.lastPrice);
@@ -55,6 +56,8 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
             priceEffect = 'up';
           } else if (currentPrice < prevPrice) {
             priceEffect = 'down';
+          } else {
+            priceEffect = 'flat';
           }
         }
         return { ...currentTicker, priceEffect };
@@ -151,9 +154,10 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
               const storedPercentageStr = ticker.price24hPcnt;
               const numericPercentage = parseFloat(storedPercentageStr);
               
-              let priceChangeTextColor = 'text.secondary';
-              if (numericPercentage > 0) priceChangeTextColor = 'success.main';
-              else if (numericPercentage < 0) priceChangeTextColor = 'error.main';
+              let priceChangeTextColor = theme.palette.text.secondary; // Default to secondary text color (greyish)
+              if (numericPercentage > 0) priceChangeTextColor = theme.palette.success.main;
+              else if (numericPercentage < 0) priceChangeTextColor = theme.palette.error.main;
+              // If numericPercentage is 0, it remains theme.palette.text.secondary
 
               const displayPercentText = `${storedPercentageStr}%`;
               
@@ -173,12 +177,13 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                               ? theme.palette.success.main 
                               : ticker.priceEffect === 'down' 
                                 ? theme.palette.error.main 
-                                : valueDisplayBaseSx.borderColor, // 기본값 (transparent)
+                                : valueDisplayBaseSx.borderColor, // Transparent for flat or undefined
+                // Text color for lastPrice remains inherit/default
               };
               
               const changeValueSx = {
                 ...valueDisplayBaseSx,
-                color: priceChangeTextColor,
+                color: priceChangeTextColor, // This now handles grey for 0% change
               };
 
               const dataItemContainerSx = (flexBasisMd = 'calc(20.83% - 8px)') => ({
@@ -188,7 +193,17 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
 
               return (
                 <React.Fragment key={ticker.symbol}>
-                  <ListItem sx={{py: 1.5}}>
+                  <ListItem 
+                    component={Link} 
+                    href={`/bybit-tickers/${category}/${ticker.symbol}`}
+                    sx={{
+                      py: 1.5, 
+                      '&:hover': { backgroundColor: theme.palette.action.hover }, 
+                      textDecoration: 'none', 
+                      color: 'inherit',
+                      cursor: 'pointer' 
+                    }}
+                  >
                     <Box
                       sx={{
                         display: 'flex',
