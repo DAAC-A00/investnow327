@@ -16,13 +16,17 @@ import {
   Divider,
   useTheme,
   IconButton,
-  Button, // Added Button
-  Drawer, // Added Drawer
-  ListItemButton // Added ListItemButton
+  Button,
+  Drawer,
+  ListItemButton,
+  ListItemIcon // Added ListItemIcon
 } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
-import SortIcon from '@mui/icons-material/Sort'; // Added SortIcon
+import SortIcon from '@mui/icons-material/Sort';
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'; // 인기 아이콘
+import TrendingUpIcon from '@mui/icons-material/TrendingUp'; // 상승 아이콘
+import TrendingDownIcon from '@mui/icons-material/TrendingDown'; // 하락 아이콘
 import { BybitTicker } from '@/services/bybit/types';
 import { fetchBybitTickers } from '@/services/bybit/api';
 import { useSearchStore } from '@/stores/searchStore';
@@ -54,7 +58,8 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
   const [tickers, setTickers] = useState<DisplayTicker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false); // State for BottomSheet
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const searchTerm = useSearchStore((state) => state.searchTerms[category]);
   const setSearchTermForCategory = useSearchStore((state) => state.setSearchTerm);
@@ -114,8 +119,46 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
     };
   }, [fetchData]);
 
+  const topTurnoverSymbols = useMemo(() => {
+    if (!tickers || tickers.length === 0) return [];
+    return [...tickers]
+      .filter(t => t.turnover24h && parseFloat(t.turnover24h) > 0)
+      .sort((a, b) => parseFloat(b.turnover24h!) - parseFloat(a.turnover24h!))
+      .slice(0, 3)
+      .map(t => t.symbol);
+  }, [tickers]);
+
+  const topAbsolutePriceChangeSymbols = useMemo(() => {
+    if (!tickers || tickers.length === 0) return [];
+    return [...tickers]
+      .filter(t => t.price24hPcnt && parseFloat(t.price24hPcnt) !== 0)
+      .sort((a, b) => Math.abs(parseFloat(b.price24hPcnt!)) - Math.abs(parseFloat(a.price24hPcnt!)))
+      .slice(0, 5)
+      .map(t => ({ symbol: t.symbol, originalChange: parseFloat(t.price24hPcnt!) }));
+  }, [tickers]);
+
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTermForCategory(category, event.target.value.toUpperCase());
+    if(!showSuggestions && event.target.value !== '' && (topTurnoverSymbols.length > 0 || topAbsolutePriceChangeSymbols.length > 0)) {
+        setShowSuggestions(true);
+    }
+  };
+  
+  const handleTextFieldFocus = () => {
+    if (topTurnoverSymbols.length > 0 || topAbsolutePriceChangeSymbols.length > 0) {
+        setShowSuggestions(true);
+    }
+  };
+
+  const handleTextFieldBlur = () => {
+    setTimeout(() => {
+        setShowSuggestions(false);
+    }, 150); // Delay to allow click on suggestion
+  };
+
+  const handleSuggestionClick = (symbol: string) => {
+    setSearchTermForCategory(category, symbol.toUpperCase());
+    setShowSuggestions(false);
   };
 
   const handleSortDirectionToggle = () => {
@@ -133,32 +176,26 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
 
   const processedTickers = useMemo(() => {
     let TickersToProcess = [...tickers];
-
     const currentSearchTerm = searchTerm || '';
     if (currentSearchTerm) {
         TickersToProcess = TickersToProcess.filter(ticker => 
         ticker.symbol.toUpperCase().includes(currentSearchTerm)
       );
     }
-
     if (sortField !== 'none' && sortField) {
         TickersToProcess.sort((a, b) => {
         const valA = a[sortField];
         const valB = b[sortField];
-
         if (valA === null || valA === undefined) return sortDirection === 'asc' ? -1 : 1;
         if (valB === null || valB === undefined) return sortDirection === 'asc' ? 1 : -1;
-        
         let comparison = 0;
         const numA = parseFloat(valA.toString());
         const numB = parseFloat(valB.toString());
-
         if (!isNaN(numA) && !isNaN(numB)) {
           comparison = numA - numB;
         } else {
           comparison = valA.toString().localeCompare(valB.toString());
         }
-
         return sortDirection === 'asc' ? comparison : -comparison;
       });
     }
@@ -190,14 +227,62 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
             alignItems: 'center', 
             justifyContent: 'center' 
         }}>
-            <Box sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 'auto' }, width: {sm: 'calc(60% - 8px)', md: 'auto'} }}>
+            <Box sx={{ position: 'relative', flexGrow: 1, minWidth: { xs: '100%', sm: 'auto' }, width: {sm: 'calc(60% - 8px)', md: 'auto'} }}>
                 <TextField
                     fullWidth
                     label={`Search Symbol (e.g., ${category === 'inverse' ? 'BTCUSD' : 'BTCUSDT'})`}
                     variant="outlined"
                     value={searchTerm || ''}
                     onChange={handleSearchChange}
+                    onFocus={handleTextFieldFocus}
+                    onBlur={handleTextFieldBlur}
                 />
+                {showSuggestions && (topTurnoverSymbols.length > 0 || topAbsolutePriceChangeSymbols.length > 0) && (
+                    <Paper sx={{
+                        position: 'absolute',
+                        top: '100%',
+                        left: 0,
+                        right: 0,
+                        zIndex: theme.zIndex.modal,
+                        maxHeight: 280,
+                        overflowY: 'auto',
+                        border: `1px solid ${theme.palette.divider}`,
+                        borderTop: 0,
+                        borderBottomLeftRadius: theme.shape.borderRadius,
+                        borderBottomRightRadius: theme.shape.borderRadius,
+                    }}>
+                        {topTurnoverSymbols.length > 0 && (
+                            <Box sx={{ pt: 0.5, pb: topAbsolutePriceChangeSymbols.length > 0 ? 0 : 0.5 }}>
+                                <List dense disablePadding>
+                                    {topTurnoverSymbols.map((symbol) => (
+                                        <ListItemButton key={`turnover-${symbol}`} onClick={() => handleSuggestionClick(symbol)}>
+                                            <ListItemIcon sx={{minWidth: 'auto', mr: 1, color: theme.palette.warning.main}}>
+                                                <LocalFireDepartmentIcon fontSize="small" />
+                                            </ListItemIcon>
+                                            <ListItemText primary={symbol} />
+                                        </ListItemButton>
+                                    ))}
+                                </List>
+                            </Box>
+                        )}
+                        {topAbsolutePriceChangeSymbols.length > 0 && (
+                            <Box sx={{ pt: topTurnoverSymbols.length > 0 ? 0 : 0.5, pb: 0.5 }}>
+                                <List dense disablePadding>
+                                    {topAbsolutePriceChangeSymbols.map((item) => (
+                                        <ListItemButton key={`abs-change-${item.symbol}`} onClick={() => handleSuggestionClick(item.symbol)}>
+                                            <ListItemIcon sx={{minWidth: 'auto', mr: 1}}>
+                                                {item.originalChange > 0 ? 
+                                                    <TrendingUpIcon fontSize="small" color="success" /> : 
+                                                    <TrendingDownIcon fontSize="small" color="error" />}
+                                            </ListItemIcon>
+                                            <ListItemText primary={item.symbol} />
+                                        </ListItemButton>
+                                    ))}
+                                </List>
+                            </Box>
+                        )}
+                    </Paper>
+                )}
             </Box>
             <Box sx={{ minWidth: { xs: 'auto', sm: 'auto' }, display:'flex', alignItems:'center' }}>
                 <Button 
