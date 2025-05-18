@@ -19,21 +19,21 @@ import {
   Button,
   Drawer,
   ListItemButton,
-  ListItemIcon // Added ListItemIcon
+  ListItemIcon
 } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import SortIcon from '@mui/icons-material/Sort';
-import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment'; // 인기 아이콘
-import TrendingUpIcon from '@mui/icons-material/TrendingUp'; // 상승 아이콘
-import TrendingDownIcon from '@mui/icons-material/TrendingDown'; // 하락 아이콘
+import LocalFireDepartmentIcon from '@mui/icons-material/LocalFireDepartment';
+import TrendingUpIcon from '@mui/icons-material/TrendingUp';
+import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import { BybitTicker } from '@/services/bybit/types';
 import { fetchBybitTickers } from '@/services/bybit/api';
 import { useSearchStore } from '@/stores/searchStore';
 import { useSortStore, SortableField, SortDirection, TickerCategory } from '@/stores/sortStore';
 
-const REFRESH_INTERVAL = 1000; // 1 second
-const PRICE_EFFECT_DURATION = 200; // 0.2 seconds
+const REFRESH_INTERVAL = 1000;
+const PRICE_EFFECT_DURATION = 200;
 
 interface DisplayTicker extends BybitTicker {
   priceEffect?: 'up' | 'down' | 'flat';
@@ -52,6 +52,14 @@ const sortableFieldsOptions: { value: SortableField; label: string }[] = [
   { value: 'volume24h', label: '24h Volume' },
   { value: 'turnover24h', label: '24h Turnover' },
 ];
+
+interface SuggestedSymbolInfo {
+    symbol: string;
+    lastPrice?: string;
+    price24hPcnt?: string;
+    originalChange?: number; 
+    suggestionType: 'turnover' | 'positive' | 'negative';
+}
 
 export default function BybitTickerPageComponent({ category, title }: BybitTickerPageProps) {
   const theme = useTheme();
@@ -119,33 +127,91 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
     };
   }, [fetchData]);
 
-  const topTurnoverSymbols = useMemo(() => {
+  const unifiedSuggestedSymbols: SuggestedSymbolInfo[] = useMemo(() => {
     if (!tickers || tickers.length === 0) return [];
-    return [...tickers]
+    const suggestions: SuggestedSymbolInfo[] = [];
+    const addedSymbols = new Set<string>();
+
+    // 1. Top Turnover Symbols
+    [...tickers]
       .filter(t => t.turnover24h && parseFloat(t.turnover24h) > 0)
       .sort((a, b) => parseFloat(b.turnover24h!) - parseFloat(a.turnover24h!))
       .slice(0, 3)
-      .map(t => t.symbol);
+      .forEach(t => {
+        if (!addedSymbols.has(t.symbol)) {
+          suggestions.push({ 
+            symbol: t.symbol, 
+            lastPrice: t.lastPrice, 
+            price24hPcnt: t.price24hPcnt,
+            suggestionType: 'turnover' 
+          });
+          addedSymbols.add(t.symbol);
+        }
+      });
+
+    const positiveChangeSymbols = [...tickers]
+      .filter(t => t.price24hPcnt && parseFloat(t.price24hPcnt) > 0)
+      .sort((a, b) => parseFloat(b.price24hPcnt!) - parseFloat(a.price24hPcnt!));
+
+    const negativeChangeSymbols = [...tickers]
+      .filter(t => t.price24hPcnt && parseFloat(t.price24hPcnt) < 0)
+      .sort((a, b) => parseFloat(a.price24hPcnt!) - parseFloat(b.price24hPcnt!));
+
+    let positiveSlice = 3;
+    let negativeSlice = 3;
+
+    if (positiveChangeSymbols.length === 2) negativeSlice = 4;
+    else if (positiveChangeSymbols.length === 1) negativeSlice = 5;
+    else if (positiveChangeSymbols.length === 0) negativeSlice = 6;
+
+    if (negativeChangeSymbols.length === 2) positiveSlice = 4;
+    else if (negativeChangeSymbols.length === 1) positiveSlice = 5;
+    else if (negativeChangeSymbols.length === 0) positiveSlice = 6;
+    
+    // 2. Top Positive Price Change Symbols
+    positiveChangeSymbols
+      .slice(0, positiveSlice)
+      .forEach(t => {
+        if (!addedSymbols.has(t.symbol)) {
+          suggestions.push({ 
+            symbol: t.symbol, 
+            lastPrice: t.lastPrice, 
+            price24hPcnt: t.price24hPcnt, 
+            originalChange: parseFloat(t.price24hPcnt!),
+            suggestionType: 'positive' 
+          });
+          addedSymbols.add(t.symbol);
+        }
+      });
+
+    // 3. Top Negative Price Change Symbols
+    negativeChangeSymbols
+      .slice(0, negativeSlice)
+      .forEach(t => {
+        if (!addedSymbols.has(t.symbol)) {
+          suggestions.push({ 
+            symbol: t.symbol, 
+            lastPrice: t.lastPrice, 
+            price24hPcnt: t.price24hPcnt, 
+            originalChange: parseFloat(t.price24hPcnt!),
+            suggestionType: 'negative' 
+          });
+          addedSymbols.add(t.symbol);
+        }
+      });
+    return suggestions;
   }, [tickers]);
 
-  const topAbsolutePriceChangeSymbols = useMemo(() => {
-    if (!tickers || tickers.length === 0) return [];
-    return [...tickers]
-      .filter(t => t.price24hPcnt && parseFloat(t.price24hPcnt) !== 0)
-      .sort((a, b) => Math.abs(parseFloat(b.price24hPcnt!)) - Math.abs(parseFloat(a.price24hPcnt!)))
-      .slice(0, 5)
-      .map(t => ({ symbol: t.symbol, originalChange: parseFloat(t.price24hPcnt!) }));
-  }, [tickers]);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTermForCategory(category, event.target.value.toUpperCase());
-    if(!showSuggestions && event.target.value !== '' && (topTurnoverSymbols.length > 0 || topAbsolutePriceChangeSymbols.length > 0)) {
+    if(!showSuggestions && event.target.value !== '' && unifiedSuggestedSymbols.length > 0) {
         setShowSuggestions(true);
     }
   };
   
   const handleTextFieldFocus = () => {
-    if (topTurnoverSymbols.length > 0 || topAbsolutePriceChangeSymbols.length > 0) {
+    if (unifiedSuggestedSymbols.length > 0) {
         setShowSuggestions(true);
     }
   };
@@ -153,7 +219,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
   const handleTextFieldBlur = () => {
     setTimeout(() => {
         setShowSuggestions(false);
-    }, 150); // Delay to allow click on suggestion
+    }, 150);
   };
 
   const handleSuggestionClick = (symbol: string) => {
@@ -237,50 +303,48 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                     onFocus={handleTextFieldFocus}
                     onBlur={handleTextFieldBlur}
                 />
-                {showSuggestions && (topTurnoverSymbols.length > 0 || topAbsolutePriceChangeSymbols.length > 0) && (
+                {showSuggestions && unifiedSuggestedSymbols.length > 0 && (
                     <Paper sx={{
                         position: 'absolute',
                         top: '100%',
                         left: 0,
                         right: 0,
                         zIndex: theme.zIndex.modal,
-                        maxHeight: 280,
+                        maxHeight: 350, 
                         overflowY: 'auto',
                         border: `1px solid ${theme.palette.divider}`,
                         borderTop: 0,
                         borderBottomLeftRadius: theme.shape.borderRadius,
                         borderBottomRightRadius: theme.shape.borderRadius,
+                        py: 0.5 
                     }}>
-                        {topTurnoverSymbols.length > 0 && (
-                            <Box sx={{ pt: 0.5, pb: topAbsolutePriceChangeSymbols.length > 0 ? 0 : 0.5 }}>
-                                <List dense disablePadding>
-                                    {topTurnoverSymbols.map((symbol) => (
-                                        <ListItemButton key={`turnover-${symbol}`} onClick={() => handleSuggestionClick(symbol)}>
-                                            <ListItemIcon sx={{minWidth: 'auto', mr: 1, color: theme.palette.warning.main}}>
-                                                <LocalFireDepartmentIcon fontSize="small" />
-                                            </ListItemIcon>
-                                            <ListItemText primary={symbol} />
-                                        </ListItemButton>
-                                    ))}
-                                </List>
-                            </Box>
-                        )}
-                        {topAbsolutePriceChangeSymbols.length > 0 && (
-                            <Box sx={{ pt: topTurnoverSymbols.length > 0 ? 0 : 0.5, pb: 0.5 }}>
-                                <List dense disablePadding>
-                                    {topAbsolutePriceChangeSymbols.map((item) => (
-                                        <ListItemButton key={`abs-change-${item.symbol}`} onClick={() => handleSuggestionClick(item.symbol)}>
-                                            <ListItemIcon sx={{minWidth: 'auto', mr: 1}}>
-                                                {item.originalChange > 0 ? 
-                                                    <TrendingUpIcon fontSize="small" color="success" /> : 
-                                                    <TrendingDownIcon fontSize="small" color="error" />}
-                                            </ListItemIcon>
-                                            <ListItemText primary={item.symbol} />
-                                        </ListItemButton>
-                                    ))}
-                                </List>
-                            </Box>
-                        )}
+                        <List dense disablePadding>
+                            {unifiedSuggestedSymbols.map((item) => (
+                                <ListItemButton key={`suggestion-${item.symbol}`} onClick={() => handleSuggestionClick(item.symbol)} sx={{py:0.5}}>
+                                    <ListItemIcon sx={{minWidth: 'auto', mr: 1}}>
+                                        {item.suggestionType === 'turnover' && <LocalFireDepartmentIcon fontSize="small" sx={{color: theme.palette.warning.main}} />}
+                                        {item.suggestionType === 'positive' && <TrendingUpIcon fontSize="small" color="success" />}
+                                        {item.suggestionType === 'negative' && <TrendingDownIcon fontSize="small" color="error" />}
+                                    </ListItemIcon>
+                                    <ListItemText primary={item.symbol} sx={{ flexGrow: 1, mr: 1 }} />
+                                    <Box sx={{ textAlign: 'right', minWidth: 80 }}>
+                                        <Typography variant="body2" component="div" sx={{ lineHeight: 1.2 }}>{item.lastPrice}</Typography>
+                                        <Typography
+                                            variant="caption"
+                                            component="div"
+                                            sx={{
+                                                lineHeight: 1.2,
+                                                color: item.originalChange && item.originalChange > 0 ? theme.palette.success.main :
+                                                       item.originalChange && item.originalChange < 0 ? theme.palette.error.main :
+                                                       'text.secondary'
+                                            }}
+                                        >
+                                            {item.price24hPcnt}%
+                                        </Typography>
+                                    </Box>
+                                </ListItemButton>
+                            ))}
+                        </List>
                     </Paper>
                 )}
             </Box>
