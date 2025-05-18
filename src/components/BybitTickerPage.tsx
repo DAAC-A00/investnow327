@@ -15,16 +15,14 @@ import {
   Box,
   Divider,
   useTheme,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   IconButton,
-  SelectChangeEvent
+  Button, // Added Button
+  Drawer, // Added Drawer
+  ListItemButton // Added ListItemButton
 } from '@mui/material';
-import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'; // Added ArrowUpward icon
-import SortIcon from '@mui/icons-material/Sort';
-import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'; // Added ArrowDownward icon
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import SortIcon from '@mui/icons-material/Sort'; // Added SortIcon
 import { BybitTicker } from '@/services/bybit/types';
 import { fetchBybitTickers } from '@/services/bybit/api';
 import { useSearchStore } from '@/stores/searchStore';
@@ -51,13 +49,12 @@ const sortableFieldsOptions: { value: SortableField; label: string }[] = [
   { value: 'turnover24h', label: '24h Turnover' },
 ];
 
-// Removed sortDirectionOptions
-
 export default function BybitTickerPageComponent({ category, title }: BybitTickerPageProps) {
   const theme = useTheme();
   const [tickers, setTickers] = useState<DisplayTicker[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isBottomSheetOpen, setIsBottomSheetOpen] = useState(false); // State for BottomSheet
 
   const searchTerm = useSearchStore((state) => state.searchTerms[category]);
   const setSearchTermForCategory = useSearchStore((state) => state.setSearchTerm);
@@ -121,19 +118,22 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
     setSearchTermForCategory(category, event.target.value.toUpperCase());
   };
 
-  const handleSortFieldChange = (event: SelectChangeEvent<SortableField>) => {
-    setSortCriteriaForCategory(category, event.target.value as SortableField, sortDirection);
-  };
-
-  const handleSortDirectionToggle = () => { // Renamed and updated logic
+  const handleSortDirectionToggle = () => {
     const newDirection = sortDirection === 'asc' ? 'desc' : 'asc';
     setSortCriteriaForCategory(category, sortField, newDirection);
+  };
+
+  const handleOpenBottomSheet = () => setIsBottomSheetOpen(true);
+  const handleCloseBottomSheet = () => setIsBottomSheetOpen(false);
+
+  const handleSortFieldSelect = (field: SortableField) => {
+    setSortCriteriaForCategory(category, field, sortDirection);
+    handleCloseBottomSheet();
   };
 
   const processedTickers = useMemo(() => {
     let TickersToProcess = [...tickers];
 
-    // Filtering
     const currentSearchTerm = searchTerm || '';
     if (currentSearchTerm) {
         TickersToProcess = TickersToProcess.filter(ticker => 
@@ -141,7 +141,6 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
       );
     }
 
-    // Sorting
     if (sortField !== 'none' && sortField) {
         TickersToProcess.sort((a, b) => {
         const valA = a[sortField];
@@ -186,12 +185,12 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
         <Box sx={{ 
             display: 'flex', 
             flexWrap: 'wrap', 
-            gap: 2, // Spacing between items
+            gap: 2, 
             marginBottom: 3, 
             alignItems: 'center', 
             justifyContent: 'center' 
         }}>
-            <Box sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 'auto' }, width: {sm: 'calc(50% - 8px)', md: 'auto'} }}> 
+            <Box sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 'auto' }, width: {sm: 'calc(60% - 8px)', md: 'auto'} }}>
                 <TextField
                     fullWidth
                     label={`Search Symbol (e.g., ${category === 'inverse' ? 'BTCUSD' : 'BTCUSDT'})`}
@@ -200,21 +199,16 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                     onChange={handleSearchChange}
                 />
             </Box>
-            <Box sx={{ flexGrow: 1, minWidth: { xs: 'calc(50% - 8px)', sm: 150 } , width: {sm: 'calc(25% - 8px)', md: 'auto'} }}> 
-                <FormControl fullWidth variant="outlined">
-                    <InputLabel>Sort By</InputLabel>
-                    <Select
-                        value={sortField || 'none'}
-                        onChange={handleSortFieldChange}
-                        label="Sort By"
-                    >
-                        {sortableFieldsOptions.map(option => (
-                            <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
+            <Box sx={{ minWidth: { xs: 'auto', sm: 'auto' }, display:'flex', alignItems:'center' }}>
+                <Button 
+                    variant="outlined" 
+                    onClick={handleOpenBottomSheet} 
+                    startIcon={<SortIcon />} 
+                    sx={{textTransform: 'none'}}
+                >
+                    Sort By: {sortableFieldsOptions.find(opt => opt.value === (sortField || 'none'))?.label || 'None'}
+                </Button>
             </Box>
-            {/* Replacing Select with IconButton for sort direction */} 
             <Box sx={{ minWidth: { xs: 'auto', sm: 'auto' }, display:'flex', alignItems:'center' }}> 
                 <IconButton 
                     onClick={handleSortDirectionToggle} 
@@ -226,6 +220,23 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                 </IconButton>
             </Box>
         </Box>
+
+        <Drawer anchor="bottom" open={isBottomSheetOpen} onClose={handleCloseBottomSheet}>
+          <Box sx={{ padding: 2 }}>
+            <Typography variant="h6" gutterBottom component="div" sx={{textAlign: 'center'}}>Sort By</Typography>
+            <List>
+              {sortableFieldsOptions.map(option => (
+                <ListItemButton 
+                    key={option.value} 
+                    selected={sortField === option.value}
+                    onClick={() => handleSortFieldSelect(option.value)}
+                >
+                  <ListItemText primary={option.label} />
+                </ListItemButton>
+              ))}
+            </List>
+          </Box>
+        </Drawer>
 
         {processedTickers.length === 0 && !loading && (
              <Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 3}}>
