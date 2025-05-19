@@ -61,6 +61,14 @@ interface SuggestedSymbolInfo {
     suggestionType: 'turnover' | 'positive' | 'negative';
 }
 
+const formatNumberWithCommas = (value: string | number | undefined): string => {
+  if (value === undefined || value === null) return 'N/A';
+  const numStr = String(value);
+  const parts = numStr.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+};
+
 export default function BybitTickerPageComponent({ category, title }: BybitTickerPageProps) {
   const theme = useTheme();
   const [tickers, setTickers] = useState<DisplayTicker[]>([]);
@@ -160,13 +168,23 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
     let positiveSlice = 3;
     let negativeSlice = 3;
 
-    if (positiveChangeSymbols.length === 2) negativeSlice = 4;
-    else if (positiveChangeSymbols.length === 1) negativeSlice = 5;
-    else if (positiveChangeSymbols.length === 0) negativeSlice = 6;
+    if (positiveChangeSymbols.length >= 3) {
+        negativeSlice = 2;
+    } else if (positiveChangeSymbols.length === 2) {
+        negativeSlice = 3;
+    } else if (positiveChangeSymbols.length === 1) {
+        negativeSlice = 4;
+    } else if (positiveChangeSymbols.length === 0) {
+        negativeSlice = 5;
+    }
 
-    if (negativeChangeSymbols.length === 2) positiveSlice = 4;
-    else if (negativeChangeSymbols.length === 1) positiveSlice = 5;
-    else if (negativeChangeSymbols.length === 0) positiveSlice = 6;
+    if (negativeChangeSymbols.length === 2) {
+        positiveSlice = 3;
+    } else if (negativeChangeSymbols.length === 1) {
+        positiveSlice = 4;
+    } else if (negativeChangeSymbols.length === 0) {
+        positiveSlice = 5;
+    }
     
     // 2. Top Positive Price Change Symbols
     positiveChangeSymbols
@@ -319,31 +337,40 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                         py: 0.5 
                     }}>
                         <List dense disablePadding>
-                            {unifiedSuggestedSymbols.map((item) => (
-                                <ListItemButton key={`suggestion-${item.symbol}`} onClick={() => handleSuggestionClick(item.symbol)} sx={{py:0.5}}>
-                                    <ListItemIcon sx={{minWidth: 'auto', mr: 1}}>
-                                        {item.suggestionType === 'turnover' && <LocalFireDepartmentIcon fontSize="small" sx={{color: theme.palette.warning.main}} />}
-                                        {item.suggestionType === 'positive' && <TrendingUpIcon fontSize="small" color="success" />}
-                                        {item.suggestionType === 'negative' && <TrendingDownIcon fontSize="small" color="error" />}
-                                    </ListItemIcon>
-                                    <ListItemText primary={item.symbol} sx={{ flexGrow: 1, mr: 1 }} />
-                                    <Box sx={{ textAlign: 'right', minWidth: 80 }}>
-                                        <Typography variant="body2" component="div" sx={{ lineHeight: 1.2 }}>{item.lastPrice}</Typography>
-                                        <Typography
-                                            variant="caption"
-                                            component="div"
-                                            sx={{
-                                                lineHeight: 1.2,
-                                                color: item.originalChange && item.originalChange > 0 ? theme.palette.success.main :
-                                                       item.originalChange && item.originalChange < 0 ? theme.palette.error.main :
-                                                       'text.secondary'
-                                            }}
-                                        >
-                                            {item.price24hPcnt}%
-                                        </Typography>
-                                    </Box>
-                                </ListItemButton>
-                            ))}
+                            {unifiedSuggestedSymbols.map((item) => {
+                                let color = 'text.secondary';
+                                if (item.suggestionType === 'turnover') {
+                                    const change = parseFloat(item.price24hPcnt || '');
+                                    if (change > 0) color = theme.palette.success.main;
+                                    else if (change < 0) color = theme.palette.error.main;
+                                } else if (item.originalChange) {
+                                    if (item.originalChange > 0) color = theme.palette.success.main;
+                                    else if (item.originalChange < 0) color = theme.palette.error.main;
+                                }
+                                return (
+                                    <ListItemButton key={`suggestion-${item.symbol}`} onClick={() => handleSuggestionClick(item.symbol)} sx={{py:0.5}}>
+                                        <ListItemIcon sx={{minWidth: 'auto', mr: 1}}>
+                                            {item.suggestionType === 'turnover' && <LocalFireDepartmentIcon fontSize="small" sx={{color: theme.palette.warning.main}} />}
+                                            {item.suggestionType === 'positive' && <TrendingUpIcon fontSize="small" color="success" />}
+                                            {item.suggestionType === 'negative' && <TrendingDownIcon fontSize="small" color="error" />}
+                                        </ListItemIcon>
+                                        <ListItemText primary={item.symbol} sx={{ flexGrow: 1, mr: 1 }} />
+                                        <Box sx={{ textAlign: 'right', minWidth: 80 }}>
+                                            <Typography variant="body2" component="div" sx={{ lineHeight: 1.2 }}>{formatNumberWithCommas(item.lastPrice)}</Typography>
+                                            <Typography
+                                                variant="caption"
+                                                component="div"
+                                                sx={{
+                                                    lineHeight: 1.2,
+                                                    color: color
+                                                }}
+                                            >
+                                                {formatNumberWithCommas(item.price24hPcnt)}%
+                                            </Typography>
+                                        </Box>
+                                    </ListItemButton>
+                                );
+                            })}
                         </List>
                     </Paper>
                 )}
@@ -396,7 +423,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
         {processedTickers.length > 0 && (
           <List sx={{ maxHeight: 600, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 0, p:0 }}>
             {processedTickers.map((ticker, index) => {
-              const displayPercentText = `${ticker.price24hPcnt}%`;
+              const displayPercentText = `${formatNumberWithCommas(ticker.price24hPcnt)}%`;
               const numeric24hChange = parseFloat(ticker.price24hPcnt);
 
               let sharedTextColor = theme.palette.grey[700];
@@ -430,16 +457,16 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                           <Typography variant="subtitle1" sx={{fontWeight: 'bold'}}>{ticker.symbol}</Typography>
                       </Box>
                       <Box sx={dataItemContainerSx()}> 
-                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="Last Price" secondary={<Box component="span" sx={lastPriceValueSx}>{ticker.lastPrice || 'N/A'}</Box>} />
+                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="Last Price" secondary={<Box component="span" sx={lastPriceValueSx}>{formatNumberWithCommas(ticker.lastPrice)}</Box>} />
                       </Box>
                       <Box sx={dataItemContainerSx()}>
                           <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Change" secondary={<Box component="span" sx={changeValueSx}>{displayPercentText}</Box>} />
                       </Box>
                       <Box sx={dataItemContainerSx()}>
-                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Volume" secondary={<Box component="span" sx={valueDisplayBaseSx}>{ticker.volume24h || 'N/A'}</Box>} />
+                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Volume" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatNumberWithCommas(ticker.volume24h)}</Box>} />
                       </Box>
                        <Box sx={dataItemContainerSx('calc(20.83% - 8px)')}>
-                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Turnover" secondary={<Box component="span" sx={valueDisplayBaseSx}>{ticker.turnover24h || 'N/A'}</Box>} />
+                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Turnover" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatNumberWithCommas(ticker.turnover24h)}</Box>} />
                       </Box>
                     </Box>
                   </ListItem>
