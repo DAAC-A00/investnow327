@@ -499,7 +499,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                   {index < processedTickers.length - 1 && <Divider />}
                 </React.Fragment>
               );
-            })}
+            }) }
           </List>
         )}
       </Paper>

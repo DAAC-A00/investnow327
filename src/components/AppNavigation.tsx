@@ -9,7 +9,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Added for back button
+import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Keep import for back button icon
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -24,15 +24,14 @@ import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
-// import InfoIcon from '@mui/icons-material/Info'; // Service Description 아이콘이므로 제거
 
 import { useRouter, usePathname } from 'next/navigation';
-import { useNavigationStore, NavLink } from '@/stores/navigationStore';
+// Import leftButtonAction and showMenuButton from useNavigationStore
+import { useNavigationStore, NavLink } from '@/stores/navigationStore'; 
 
 const DRAWER_WIDTH = 240;
 
 const getIconForLink = (label: string): React.ReactNode => {
-  // if (label === 'Service Description') return <InfoIcon />;
   if (label === 'Counter') return <AddCircleOutlineIcon />;
   if (label === 'Todo List') return <CheckCircleOutlineIcon />;
   if (label === 'Exchange Rates') return <AttachMoneyIcon />;
@@ -45,14 +44,15 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
   const pathname = usePathname();
-  const { isDrawerOpen, toggleDrawer, closeDrawer, navLinks } = useNavigationStore();
+  // Use state and actions from the navigation store, including new ones
+  const { isDrawerOpen, toggleDrawer, closeDrawer, navLinks, appbarTitle, showMenuButton, leftButtonAction } = useNavigationStore();
 
-  const isDetailPage = pathname.startsWith('/bybit-spot-tickers') || 
-                       pathname.startsWith('/bybit-linear-tickers') || 
-                       pathname.startsWith('/bybit-inverse-tickers');
+   const isDetailPage = pathname.startsWith('/bybit-spot-tickers') || 
+                        pathname.startsWith('/bybit-linear-tickers') || 
+                        pathname.startsWith('/bybit-inverse-tickers');
 
   const handleNavigate = (path: string) => {
-    if (path === '#') return; 
+    if (path === '#') return;
     router.push(path);
     if (isMobile) {
       closeDrawer();
@@ -61,12 +61,12 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
 
   const drawerContent = (
     <Box sx={{ width: DRAWER_WIDTH }} role="presentation">
-      <Toolbar /> 
+      <Toolbar />
       <List>
         {navLinks.map((item) => (
           <ListItem key={item.label} disablePadding>
-            <ListItemButton 
-              onClick={() => handleNavigate(item.path)} 
+            <ListItemButton
+              onClick={() => handleNavigate(item.path)}
               selected={pathname === item.path || (item.path === '/tickers' && isDetailPage)}
             >
               <ListItemIcon>{getIconForLink(item.label)}</ListItemIcon>
@@ -78,45 +78,19 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
     </Box>
   );
 
-  let currentPageLabel = ' '; 
-  if (isDetailPage) {
-    if (pathname.startsWith('/bybit-spot-tickers')) {
-      currentPageLabel = 'Bybit Spot Tickers';
-    } else if (pathname.startsWith('/bybit-linear-tickers')) {
-      currentPageLabel = 'Bybit Linear Tickers';
-    } else if (pathname.startsWith('/bybit-inverse-tickers')) {
-      currentPageLabel = 'Bybit Inverse Tickers';
-    }
-  } else {
-    const activeLink = navLinks.find(item => item.path === pathname);
-    if (activeLink) {
-      currentPageLabel = activeLink.label;
-    } else if (pathname === '/') {
-      const homeLink = navLinks.find(item => item.path === '/');
-      currentPageLabel = homeLink ? homeLink.label : 'Dashboard';
-    }
-  }
-  
-  let bottomNavValue = navLinks.findIndex(item => 
+  // Determine bottom navigation value based on current path and detail page status
+  let bottomNavValue = navLinks.findIndex(item =>
     pathname === item.path || (item.path === '/tickers' && isDetailPage)
   );
-  if (bottomNavValue === -1 && pathname !== '/') bottomNavValue = 0; 
+  if (bottomNavValue === -1 && pathname !== '/') bottomNavValue = 0;
+
 
   return (
     <Box sx={{ display: 'flex' }}>
       <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
-          {isDetailPage ? (
-            <IconButton
-              color="inherit"
-              aria-label="go back"
-              edge="start"
-              onClick={() => router.back()}
-              sx={{ mr: 2 }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-          ) : (
+          {/* Conditionally render Menu or Back icon based on showMenuButton state */}
+          {showMenuButton ? (
             <IconButton
               color="inherit"
               aria-label="open drawer"
@@ -126,43 +100,63 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
             >
               <MenuIcon />
             </IconButton>
+          ) : ( // If not showing menu button, show back button if action is defined
+             leftButtonAction && (
+                <IconButton
+                  color="inherit"
+                  aria-label="go back"
+                  edge="start"
+                  onClick={leftButtonAction}
+                  sx={{ mr: 2 }}
+                >
+                  <ArrowBackIcon />
+                </IconButton>
+             )
           )}
+          {/* Use appbarTitle from the store for the AppBar title */}
           <Typography variant="h6" noWrap component="div">
-            {currentPageLabel}
+            {appbarTitle}
           </Typography>
         </Toolbar>
       </AppBar>
-      {!isDetailPage && (
-        <Drawer
-          variant={isMobile ? 'temporary' : 'permanent'}
-          open={isDrawerOpen}
-          onClose={closeDrawer}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            width: DRAWER_WIDTH,
-            flexShrink: 0,
-            [`& .MuiDrawer-paper`]: { width: DRAWER_WIDTH, boxSizing: 'border-box' },
-          }}
-        >
-          {drawerContent}
-        </Drawer>
-      )}
-       <Box 
-        component="main" 
+      {/* Drawer is hidden on detail pages, always temporary on mobile, and permanent on larger screens if not detail page */}
+      <Drawer
+        variant={isMobile || isDetailPage ? 'temporary' : 'permanent'}
+        open={isMobile ? isDrawerOpen : !isDetailPage && isDrawerOpen} // Control open state based on mobile and detail page
+        onClose={closeDrawer}
+        ModalProps={{ keepMounted: true }}
         sx={{
-          flexGrow: 1, 
-          p: 3, 
-          width: { sm: !isDetailPage ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%' },
-          marginLeft: { sm: !isDetailPage ? `${DRAWER_WIDTH}px` : 0 }, // Adjust margin when drawer is hidden
+          // Adjust width based on whether it's a permanent drawer
+          width: !isMobile && !isDetailPage ? DRAWER_WIDTH : 0,
+          flexShrink: 0,
+           // Hide permanent drawer visually when not on a normal list page
+          ['& .MuiDrawer-paper']: { 
+              width: DRAWER_WIDTH, 
+              boxSizing: 'border-box',
+              display: !isMobile && isDetailPage ? 'none' : 'block' // Hide permanent drawer on detail pages
+          },
         }}
       >
-        <Toolbar />  
+        {drawerContent}
+      </Drawer>
+      {/* Adjust main content margin based on whether permanent drawer is visible */}
+       <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: 3,
+          width: { sm: !isMobile && !isDetailPage ? `calc(100% - ${DRAWER_WIDTH}px)` : '100%' },
+          marginLeft: { sm: !isMobile && !isDetailPage ? `${DRAWER_WIDTH}px` : 0 },
+        }}
+      >
+        <Toolbar />
         {children}
+        {/* Bottom navigation visible on mobile and not on detail pages */}
         {isMobile && !isDetailPage && (
           <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }} elevation={3}>
             <BottomNavigation
               showLabels
-              value={bottomNavValue >=0 ? bottomNavValue : 0} 
+              value={bottomNavValue >=0 ? bottomNavValue : 0}
               onChange={(event, newValue) => {
                 const selectedLink = navLinks[newValue];
                 if (selectedLink) {
@@ -171,10 +165,10 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
               }}
             >
               {navLinks.map((item) => (
-                <BottomNavigationAction 
-                  key={item.label} 
-                  label={item.label} 
-                  icon={getIconForLink(item.label)} 
+                <BottomNavigationAction
+                  key={item.label}
+                  label={item.label}
+                  icon={getIconForLink(item.label)}
                 />
               ))}
             </BottomNavigation>
