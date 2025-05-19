@@ -69,6 +69,32 @@ const formatNumberWithCommas = (value: string | number | undefined): string => {
   return parts.join('.');
 };
 
+const formatVolumeOrTurnover = (value: string | number | undefined): string => {
+  if (value === undefined || value === null) return 'N/A';
+  const num = parseFloat(String(value));
+  if (isNaN(num)) return 'N/A';
+
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(2) + 'B';
+  } else if (num >= 1000000) {
+    return (num / 1000000).toFixed(2) + 'M';
+  } else if (num >= 1000) {
+    return (num / 1000).toFixed(2) + 'K';
+  } else {
+    let formattedValue;
+    if (num >= 100) {
+      formattedValue = num.toFixed(2);
+    } else if (num >= 10) {
+      formattedValue = num.toFixed(3);
+    } else {
+       formattedValue = num.toFixed(4); // More precision for small numbers
+    }
+     const parts = formattedValue.split('.');
+     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+     return parts.join('.');
+  }
+};
+
 export default function BybitTickerPageComponent({ category, title }: BybitTickerPageProps) {
   const theme = useTheme();
   const [tickers, setTickers] = useState<DisplayTicker[]>([]);
@@ -463,10 +489,10 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                           <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Change" secondary={<Box component="span" sx={changeValueSx}>{displayPercentText}</Box>} />
                       </Box>
                       <Box sx={dataItemContainerSx()}>
-                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Volume" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatNumberWithCommas(ticker.volume24h)}</Box>} />
+                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Volume" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatVolumeOrTurnover(ticker.volume24h)}</Box>} />
                       </Box>
                        <Box sx={dataItemContainerSx('calc(20.83% - 8px)')}>
-                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Turnover" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatNumberWithCommas(ticker.turnover24h)}</Box>} />
+                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Turnover" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatVolumeOrTurnover(ticker.turnover24h)}</Box>} />
                       </Box>
                     </Box>
                   </ListItem>
