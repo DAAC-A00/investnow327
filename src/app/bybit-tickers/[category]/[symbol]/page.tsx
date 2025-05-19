@@ -17,10 +17,12 @@ import { fetchBybitTickers } from '@/services/bybit/api';
 import { TickerCategory } from '@/stores/sortStore';
 import { useNavigationStore } from '@/stores/navigationStore';
 
+// Define DisplayTicker locally for this page
 interface DisplayTicker extends BybitTicker {
   priceEffect?: 'up' | 'down' | 'flat';
 }
 
+// Re-import formatting functions from BybitTickerPage.tsx
 const formatNumberWithCommas = (value: string | number | undefined): string => {
   if (value === undefined || value === null) return 'N/A';
   const numStr = String(value);
@@ -66,10 +68,11 @@ interface TickerDetailPageProps {
 }
 
 export default function TickerDetailPage({ params }: TickerDetailPageProps) {
+  const { category, symbol } = params; // Directly destructure params
+
   const theme = useTheme();
   const router = useRouter();
   const { setAppbarTitle, setLeftButtonAction, setShowMenuButton } = useNavigationStore();
-  const { category, symbol } = params;
   const [ticker, setTicker] = useState<DisplayTicker | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -212,7 +215,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
             alignItems: 'center',
             padding: '4px 0' // Adjust padding since border is on valueTypography
         }}>
-            <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{key.replace(/([A-Z])/g, ' $1').trim()}</Typography>
+            <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{key.replace(/([A-Z])/g, ' $1').trim()}:</Typography>
             {valueTypography}
         </Box>
       );
@@ -222,13 +225,6 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   return (
     <Container maxWidth="md">
       <Paper sx={{ padding: { xs: 2, sm: 3 }, marginY: 2 }}>
-        {/* Removed local back button and title box - Appbar handles title and back */}
-        {/* Show symbol as a prominent header within the content - keep if needed for visual hierarchy below Appbar */}
-        {/* <Typography variant="h5" component="h2" gutterBottom align="center" sx={{ marginBottom: 2 }}>
-             {decodeURIComponent(symbol)}
-             {loading && ticker && <CircularProgress size={20} sx={{ marginLeft: 1, verticalAlign: 'middle' }} />}
-        </Typography> */}
-
         {/* Show loading spinner only if no ticker data is available yet */}
         {loading && !ticker && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>

@@ -9,7 +9,7 @@ import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import IconButton from '@mui/material/IconButton';
 import MenuIcon from '@mui/icons-material/Menu';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Keep import for back button icon
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import Drawer from '@mui/material/Drawer';
 import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
@@ -26,8 +26,7 @@ import AttachMoneyIcon from '@mui/icons-material/AttachMoney';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 
 import { useRouter, usePathname } from 'next/navigation';
-// Import leftButtonAction and showMenuButton from useNavigationStore
-import { useNavigationStore, NavLink } from '@/stores/navigationStore'; 
+import { useNavigationStore, NavLink } from '@/stores/navigationStore';
 
 const DRAWER_WIDTH = 240;
 
@@ -44,8 +43,23 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
   const pathname = usePathname();
-  // Use state and actions from the navigation store, including new ones
-  const { isDrawerOpen, toggleDrawer, closeDrawer, navLinks, appbarTitle, showMenuButton, leftButtonAction } = useNavigationStore();
+  const { 
+    isDrawerOpen, 
+    toggleDrawer, 
+    closeDrawer, 
+    navLinks, 
+    appbarTitle: storeAppbarTitle, // Rename to avoid conflict
+    showMenuButton, 
+    leftButtonAction 
+  } = useNavigationStore();
+
+  // Local state for the title to prevent hydration mismatch
+  const [clientAppbarTitle, setClientAppbarTitle] = React.useState(storeAppbarTitle);
+
+  React.useEffect(() => {
+    // Update the client-side title after hydration if it differs from the store
+    setClientAppbarTitle(storeAppbarTitle);
+  }, [storeAppbarTitle]);
 
    const isDetailPage = pathname.startsWith('/bybit-spot-tickers') || 
                         pathname.startsWith('/bybit-linear-tickers') || 
@@ -89,7 +103,6 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
     <Box sx={{ display: 'flex' }}>
       <AppBar position="fixed" sx={{ zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }}>
         <Toolbar>
-          {/* Conditionally render Menu or Back icon based on showMenuButton state */}
           {showMenuButton ? (
             <IconButton
               color="inherit"
@@ -100,7 +113,7 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
             >
               <MenuIcon />
             </IconButton>
-          ) : ( // If not showing menu button, show back button if action is defined
+          ) : (
              leftButtonAction && (
                 <IconButton
                   color="inherit"
@@ -113,33 +126,28 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
                 </IconButton>
              )
           )}
-          {/* Use appbarTitle from the store for the AppBar title */}
           <Typography variant="h6" noWrap component="div">
-            {appbarTitle}
+            {clientAppbarTitle} {/* Render client-side title */}
           </Typography>
         </Toolbar>
       </AppBar>
-      {/* Drawer is hidden on detail pages, always temporary on mobile, and permanent on larger screens if not detail page */}
       <Drawer
         variant={isMobile || isDetailPage ? 'temporary' : 'permanent'}
-        open={isMobile ? isDrawerOpen : !isDetailPage && isDrawerOpen} // Control open state based on mobile and detail page
+        open={isMobile ? isDrawerOpen : !isDetailPage && isDrawerOpen}
         onClose={closeDrawer}
         ModalProps={{ keepMounted: true }}
         sx={{
-          // Adjust width based on whether it's a permanent drawer
           width: !isMobile && !isDetailPage ? DRAWER_WIDTH : 0,
           flexShrink: 0,
-           // Hide permanent drawer visually when not on a normal list page
           ['& .MuiDrawer-paper']: { 
               width: DRAWER_WIDTH, 
               boxSizing: 'border-box',
-              display: !isMobile && isDetailPage ? 'none' : 'block' // Hide permanent drawer on detail pages
+              display: !isMobile && isDetailPage ? 'none' : 'block' 
           },
         }}
       >
         {drawerContent}
       </Drawer>
-      {/* Adjust main content margin based on whether permanent drawer is visible */}
        <Box
         component="main"
         sx={{
@@ -151,7 +159,6 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
       >
         <Toolbar />
         {children}
-        {/* Bottom navigation visible on mobile and not on detail pages */}
         {isMobile && !isDetailPage && (
           <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }} elevation={3}>
             <BottomNavigation
