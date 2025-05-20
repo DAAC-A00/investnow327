@@ -43,27 +43,38 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
   const pathname = usePathname();
-  const { 
-    isDrawerOpen, 
-    toggleDrawer, 
-    closeDrawer, 
-    navLinks, 
-    appbarTitle: storeAppbarTitle, // Rename to avoid conflict
-    showMenuButton, 
-    leftButtonAction 
+  const {
+    isDrawerOpen,
+    toggleDrawer,
+    closeDrawer,
+    navLinks,
+    appbarTitle, // Use directly from store
+    setAppbarTitle, // Import setAppbarTitle
+    showMenuButton,
+    leftButtonAction
   } = useNavigationStore();
 
-  // Local state for the title to prevent hydration mismatch
-  const [clientAppbarTitle, setClientAppbarTitle] = React.useState(storeAppbarTitle);
-
   React.useEffect(() => {
-    // Update the client-side title after hydration if it differs from the store
-    setClientAppbarTitle(storeAppbarTitle);
-  }, [storeAppbarTitle]);
+    const currentLink = navLinks.find(link => link.path === pathname);
+    if (currentLink) {
+      setAppbarTitle(currentLink.label);
+    } else if (pathname === '/') {
+        setAppbarTitle('Home'); // Assuming you have a default title for home or handle as needed
+    }
+    // Handle detail page titles if necessary, or set a generic one
+    else if (pathname.startsWith('/bybit-spot-tickers') ||
+               pathname.startsWith('/bybit-linear-tickers') ||
+               pathname.startsWith('/bybit-inverse-tickers')) {
+      // Optionally, set a more specific title e.g., "Ticker Details"
+      // Or extract from path if possible and needed
+      setAppbarTitle('Ticker Details');
+    }
+    // Add other conditions for other paths if needed
+  }, [pathname, navLinks, setAppbarTitle]);
 
-   const isDetailPage = pathname.startsWith('/bybit-spot-tickers') || 
-                        pathname.startsWith('/bybit-linear-tickers') || 
-                        pathname.startsWith('/bybit-inverse-tickers');
+  const isDetailPage = pathname.startsWith('/bybit-spot-tickers') ||
+                       pathname.startsWith('/bybit-linear-tickers') ||
+                       pathname.startsWith('/bybit-inverse-tickers');
 
   const handleNavigate = (path: string) => {
     if (path === '#') return;
@@ -92,12 +103,10 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
     </Box>
   );
 
-  // Determine bottom navigation value based on current path and detail page status
   let bottomNavValue = navLinks.findIndex(item =>
     pathname === item.path || (item.path === '/tickers' && isDetailPage)
   );
   if (bottomNavValue === -1 && pathname !== '/') bottomNavValue = 0;
-
 
   return (
     <Box sx={{ display: 'flex' }}>
@@ -127,7 +136,7 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
              )
           )}
           <Typography variant="h6" noWrap component="div">
-            {clientAppbarTitle} {/* Render client-side title */}
+            {appbarTitle} {/* Display title from store */}
           </Typography>
         </Toolbar>
       </AppBar>
@@ -139,10 +148,10 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
         sx={{
           width: !isMobile && !isDetailPage ? DRAWER_WIDTH : 0,
           flexShrink: 0,
-          ['& .MuiDrawer-paper']: { 
-              width: DRAWER_WIDTH, 
+          ['& .MuiDrawer-paper']: {
+              width: DRAWER_WIDTH,
               boxSizing: 'border-box',
-              display: !isMobile && isDetailPage ? 'none' : 'block' 
+              display: !isMobile && isDetailPage ? 'none' : 'block'
           },
         }}
       >
