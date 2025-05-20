@@ -20,15 +20,15 @@ interface TickerLink {
 const tickerPages: TickerLink[] = [
   {
     name: 'Spot',
-    path: '/bybit-spot-tickers',
+    path: '/tickers/bybit/spot',
   },
   {
     name: 'Linear',
-    path: '/bybit-linear-tickers',
+    path: '/tickers/bybit/linear',
   },
   {
     name: 'Inverse',
-    path: '/bybit-inverse-tickers',
+    path: '/tickers/bybit/inverse',
   },
 ];
 
