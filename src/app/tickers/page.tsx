@@ -7,96 +7,80 @@ import {
   Paper,
   Box,
   Button,
-  // Grid, // Removed Grid
-  useTheme, // Added useTheme to access spacing
+  useTheme,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image'; // Import the Next.js Image component
 
 interface TickerLink {
-  label: string;
+  name: string;
   path: string;
-  description: string;
 }
 
 const tickerPages: TickerLink[] = [
   {
-    label: 'Bybit Spot Tickers',
+    name: 'Spot',
     path: '/bybit-spot-tickers',
-    description: 'View live spot market data from Bybit, sorted by turnover.',
   },
   {
-    label: 'Bybit Linear Tickers',
+    name: 'Linear',
     path: '/bybit-linear-tickers',
-    description: 'View live linear perpetual contract data from Bybit, sorted by turnover.',
   },
   {
-    label: 'Bybit Inverse Tickers',
+    name: 'Inverse',
     path: '/bybit-inverse-tickers',
-    description: 'View live inverse contract data from Bybit, sorted by turnover.',
   },
 ];
 
 export default function TickersHubPage() {
   const router = useRouter();
-  const theme = useTheme(); // For accessing theme.spacing
-
-  const handleNavigate = (path: string) => {
-    router.push(path);
-  };
+  const theme = useTheme();
 
   return (
-    <Container maxWidth="md">
-      <Paper sx={{ padding: { xs: 2, sm: 3 }, marginY: { xs: 2, sm: 4 } }}>
-        <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4 }}>
-          Ticker Pages
+    <Container maxWidth="sm" sx={{ py: theme.spacing(4) }}>
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          mb: theme.spacing(3) 
+        }}
+      >
+        <Image 
+          src="/bybit_logo.svg" // Assuming your logo is here
+          alt="Bybit Logo"
+          width={40} // Adjust width as needed
+          height={40} // Adjust height as needed
+          style={{ marginRight: theme.spacing(1.5) }} // Add some space between logo and text
+        />
+        <Typography variant="h4" component="h1">
+          Bybit
         </Typography>
-
-        <Box 
-          sx={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            justifyContent: 'center', // Or 'flex-start' if you prefer items to align left
-            gap: theme.spacing(3), // Replicates Grid spacing={3}
-          }}
-        >
-          {tickerPages.map((page) => (
-            <Box 
-              key={page.label} 
-              sx={{
-                width: { 
-                  xs: '100%', 
-                  sm: `calc(50% - ${theme.spacing(1.5)})`, // (spacing/2) for 2 items per row
-                  md: `calc(33.333% - ${theme.spacing(2)})`  // (spacing*2/3) for 3 items per row, approximation
-                },
-                minWidth: { 
-                    xs: '100%', 
-                    sm: '280px', // Ensure a minimum reasonable width for items
-                    md: '280px'
-                },
-                display: 'flex', // To make Paper inside take full height if needed
-              }}
-            >
-              <Paper elevation={2} sx={{ p: 2, textAlign: 'center', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography variant="h6" component="h2" gutterBottom>
-                    {page.label}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                    {page.description}
-                  </Typography>
-                </Box>
-                <Button 
-                  variant="contained" 
-                  onClick={() => handleNavigate(page.path)} 
-                  fullWidth
-                >
-                  Go to {page.label.replace('Bybit ', '').replace(' Tickers','')}
-                </Button>
-              </Paper>
-            </Box>
-          ))}
-        </Box>
-      </Paper>
+      </Box>
+      
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing(2),
+        }}
+      >
+        {tickerPages.map((page) => (
+          <Button
+            key={page.path}
+            variant="contained"
+            color="primary"
+            fullWidth
+            onClick={() => router.push(page.path)}
+            sx={{
+              py: theme.spacing(1.5),
+              fontSize: '1rem',
+            }}
+          >
+            {page.name}
+          </Button>
+        ))}
+      </Box>
     </Container>
   );
 }
