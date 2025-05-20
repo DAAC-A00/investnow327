@@ -20,7 +20,6 @@ interface InstrumentStoreState {
     inverse: string | null;
   };
   fetchInstruments: (category: 'spot' | 'linear' | 'inverse') => Promise<void>;
-  getInstrumentBySymbol: (category: 'spot' | 'linear' | 'inverse', symbol: string) => BybitInstrumentInfo | undefined;
   getInstrumentsByCategory: (category: 'spot' | 'linear' | 'inverse') => BybitInstrumentInfo[];
 }
 
@@ -75,10 +74,6 @@ export const useInstrumentStore = create<InstrumentStoreState>((set, get) => ({
         loading: { ...state.loading, [category]: false },
       }));
     }
-  },
-  getInstrumentBySymbol: (category, symbol) => {
-    const categoryInstruments = get().instruments[category];
-    return categoryInstruments.find(instrument => instrument.symbol === symbol);
   },
   getInstrumentsByCategory: (category) => {
     return get().instruments[category];

@@ -26,15 +26,25 @@ export async function fetchAllInstrumentsInfoForCategory(category: 'spot' | 'lin
 
 export async function fetchBybitTickers(category: 'spot' | 'linear' | 'inverse'): Promise<BybitTicker[]> {
   const API_ENDPOINT = `${BASE_API_URL}/tickers?category=${category}`;
-  const response = await fetch(API_ENDPOINT);
-  if (!response.ok) {
-    const errorData = await response.json();
+  const [tickersResponse, instrumentsInfoResponse] = await Promise.all([
+    fetch(API_ENDPOINT),
+    fetchAllInstrumentsInfoForCategory(category) // Fetch all instruments for the category
+  ]);
+
+  if (!tickersResponse.ok) {
+    const errorData = await tickersResponse.json();
     throw new Error(errorData.retMsg || `Failed to fetch Bybit ${category} tickers`);
   }
-  const data: BybitApiResponse = await response.json();
+  const tickersData: BybitApiResponse = await tickersResponse.json();
 
-  if (data.retCode === 0 && data.result && data.result.list) {
-    const processedTickers: BybitTicker[] = data.result.list.map((apiTicker: BybitApiResponseTicker) => {
+  // Create a map for quick lookup of instrument info by symbol
+  const instrumentsMap = new Map<string, BybitInstrumentInfo>();
+  instrumentsInfoResponse.forEach(instrument => {
+    instrumentsMap.set(instrument.symbol, instrument);
+  });
+
+  if (tickersData.retCode === 0 && tickersData.result && tickersData.result.list) {
+    const processedTickers: BybitTicker[] = tickersData.result.list.map((apiTicker: BybitApiResponseTicker) => {
       const pChangeFactor = parseFloat(apiTicker.price24hPcnt);
       let storedPercentageString = "0.00"; // Default if parsing fails
 
@@ -52,16 +62,21 @@ export async function fetchBybitTickers(category: 'spot' | 'linear' | 'inverse')
             storedPercentageString = apiTicker.price24hPcnt || "+0.00";
         }
       }
+      
+      const instrumentInfo = instrumentsMap.get(apiTicker.symbol);
+
       return {
         ...apiTicker,
         price24hPcnt: storedPercentageString,
-        // tickSize is no longer added here; it will be retrieved from instrumentStore in components
+        baseCoin: instrumentInfo?.baseCoin,
+        quoteCoin: instrumentInfo?.quoteCoin,
+        settleCoin: instrumentInfo?.settleCoin,
       };
     });
     // Sort by turnover24h in descending order
     return processedTickers.sort((a, b) => parseFloat(b.turnover24h) - parseFloat(a.turnover24h));
   } else {
-    throw new Error(data.retMsg || 'Invalid API response structure for tickers');
+    throw new Error(tickersData.retMsg || 'Invalid API response structure for tickers');
   }
 }
 

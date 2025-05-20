@@ -24,6 +24,9 @@ export interface BybitTicker { // For internal use and display
   ask1Size?: string;
   bid1Size?: string;
   basis?: string;
+  baseCoin?: string; // Added
+  quoteCoin?: string; // Added
+  settleCoin?: string; // Added
   // Fields that might be present but are often empty or not as crucial for display
   preOpenPrice?: string;
   preQty?: string;
@@ -56,6 +59,9 @@ export interface BybitApiResponseTicker { // Directly maps to API response struc
   ask1Size?: string;
   bid1Size?: string;
   basis?: string;
+  baseCoin?: string; // Added
+  quoteCoin?: string; // Added
+  settleCoin?: string; // Added
   preOpenPrice?: string;
   preQty?: string;
   curPreListingPhase?: string;

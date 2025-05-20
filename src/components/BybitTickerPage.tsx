@@ -49,8 +49,6 @@ const sortableFieldsOptions: { value: SortableField; label: string }[] = [
   { value: 'symbol', label: 'Symbol' },
   { value: 'lastPrice', label: 'Last Price' },
   { value: 'price24hPcnt', label: '24h Change %' },
-  { value: 'volume24h', label: '24h Volume' },
-  { value: 'turnover24h', label: '24h Turnover' },
 ];
 
 interface SuggestedSymbolInfo {
@@ -67,32 +65,6 @@ const formatNumberWithCommas = (value: string | number | undefined): string => {
   const parts = numStr.split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return parts.join('.');
-};
-
-const formatVolumeOrTurnover = (value: string | number | undefined): string => {
-  if (value === undefined || value === null) return 'N/A';
-  const num = parseFloat(String(value));
-  if (isNaN(num)) return 'N/A';
-
-  if (num >= 1000000000) {
-    return (num / 1000000000).toFixed(2) + 'B';
-  } else if (num >= 1000000) {
-    return (num / 1000000).toFixed(2) + 'M';
-  } else if (num >= 1000) {
-    return (num / 1000).toFixed(2) + 'K';
-  } else {
-    let formattedValue;
-    if (num >= 100) {
-      formattedValue = num.toFixed(2);
-    } else if (num >= 10) {
-      formattedValue = num.toFixed(3);
-    } else {
-       formattedValue = num.toFixed(4); // More precision for small numbers
-    }
-     const parts = formattedValue.split('.');
-     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-     return parts.join('.');
-  }
 };
 
 export default function BybitTickerPageComponent({ category, title }: BybitTickerPageProps) {
@@ -166,22 +138,23 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
     const suggestions: SuggestedSymbolInfo[] = [];
     const addedSymbols = new Set<string>();
 
-    // 1. Top Turnover Symbols
-    [...tickers]
-      .filter(t => t.turnover24h && parseFloat(t.turnover24h) > 0)
-      .sort((a, b) => parseFloat(b.turnover24h!) - parseFloat(a.turnover24h!))
-      .slice(0, 3)
-      .forEach(t => {
-        if (!addedSymbols.has(t.symbol)) {
-          suggestions.push({ 
-            symbol: t.symbol, 
-            lastPrice: t.lastPrice, 
-            price24hPcnt: t.price24hPcnt,
-            suggestionType: 'turnover' 
+    if (tickers[0]?.turnover24h !== undefined) {
+        [...tickers]
+          .filter(t => t.turnover24h && parseFloat(t.turnover24h) > 0)
+          .sort((a, b) => parseFloat(b.turnover24h!) - parseFloat(a.turnover24h!))
+          .slice(0, 3)
+          .forEach(t => {
+            if (!addedSymbols.has(t.symbol)) {
+              suggestions.push({ 
+                symbol: t.symbol, 
+                lastPrice: t.lastPrice, 
+                price24hPcnt: t.price24hPcnt,
+                suggestionType: 'turnover' 
+              });
+              addedSymbols.add(t.symbol);
+            }
           });
-          addedSymbols.add(t.symbol);
-        }
-      });
+    }
 
     const positiveChangeSymbols = [...tickers]
       .filter(t => t.price24hPcnt && parseFloat(t.price24hPcnt) > 0)
@@ -212,7 +185,6 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
         positiveSlice = 5;
     }
     
-    // 2. Top Positive Price Change Symbols
     positiveChangeSymbols
       .slice(0, positiveSlice)
       .forEach(t => {
@@ -228,7 +200,6 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
         }
       });
 
-    // 3. Top Negative Price Change Symbols
     negativeChangeSymbols
       .slice(0, negativeSlice)
       .forEach(t => {
@@ -245,7 +216,6 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
       });
     return suggestions;
   }, [tickers]);
-
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTermForCategory(category, event.target.value.toUpperCase());
@@ -292,7 +262,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
         ticker.symbol.toUpperCase().includes(currentSearchTerm)
       );
     }
-    if (sortField !== 'none' && sortField) {
+    if (sortField !== 'none' && sortField && sortableFieldsOptions.some(opt => opt.value === sortField)) {
         TickersToProcess.sort((a, b) => {
         const valA = a[sortField];
         const valB = b[sortField];
@@ -466,10 +436,18 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                 color: sharedTextColor,
               };
               const changeValueSx = { ...valueDisplayBaseSx, color: sharedTextColor };
-              const dataItemContainerSx = (flexBasisMd = 'calc(20.83% - 8px)') => ({
-                flexBasis: { xs: 'calc(50% - 4px)', sm: 'calc(25% - 8px)', md: flexBasisMd }, 
-                width: { xs: 'calc(50% - 4px)', sm: 'calc(25% - 8px)', md: flexBasisMd }
+              
+              // Adjusted flexBasis for 5 items: Symbol, Price, Change, Pair, Settle Coin (if present)
+              const numItems = ticker.settleCoin ? 5 : 4;
+              const mdFlexBasis = numItems === 5 ? 'calc(20% - 8px)' : 'calc(25% - 8px)';
+              const smFlexBasis = numItems === 5 ? 'calc(20% - 8px)' : 'calc(25% - 8px)'; // can be same as md or different
+
+              const dataItemContainerSx = (isSymbol = false) => ({
+                flexBasis: { xs: 'calc(50% - 4px)', sm: smFlexBasis, md: isSymbol ? 'calc(20% - 8px)' : mdFlexBasis }, // Symbol can be wider
+                width: { xs: 'calc(50% - 4px)', sm: smFlexBasis, md: isSymbol ? 'calc(20% - 8px)' : mdFlexBasis },
               });
+              
+              const pairText = `${ticker.baseCoin || ''}/${ticker.quoteCoin || ''}`;
 
               return (
                 <React.Fragment key={ticker.symbol}>
@@ -479,7 +457,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                     sx={{ py: 1.5, '&:hover': { backgroundColor: theme.palette.action.hover }, textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
                   >
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', width: '100%', gap: 1 }}>
-                      <Box sx={{ ...dataItemContainerSx('calc(16.66% - 8px)'), pr:1 }}>
+                      <Box sx={{ ...dataItemContainerSx(true), pr:1 }}>
                           <Typography variant="subtitle1" sx={{fontWeight: 'bold'}}>{ticker.symbol}</Typography>
                       </Box>
                       <Box sx={dataItemContainerSx()}> 
@@ -489,11 +467,13 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                           <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Change" secondary={<Box component="span" sx={changeValueSx}>{displayPercentText}</Box>} />
                       </Box>
                       <Box sx={dataItemContainerSx()}>
-                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Volume" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatVolumeOrTurnover(ticker.volume24h)}</Box>} />
+                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="Pair" secondary={<Box component="span" sx={valueDisplayBaseSx}>{pairText === '/' ? 'N/A' : pairText}</Box>} />
                       </Box>
-                       <Box sx={dataItemContainerSx('calc(20.83% - 8px)')}>
-                          <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="24h Turnover" secondary={<Box component="span" sx={valueDisplayBaseSx}>{formatVolumeOrTurnover(ticker.turnover24h)}</Box>} />
-                      </Box>
+                      {ticker.settleCoin && (
+                        <Box sx={dataItemContainerSx()}>
+                            <ListItemText primaryTypographyProps={{variant:'caption', color:'text.secondary'}} primary="Settle Coin" secondary={<Box component="span" sx={valueDisplayBaseSx}>{ticker.settleCoin}</Box>} />
+                        </Box>
+                      )}
                     </Box>
                   </ListItem>
                   {index < processedTickers.length - 1 && <Divider />}

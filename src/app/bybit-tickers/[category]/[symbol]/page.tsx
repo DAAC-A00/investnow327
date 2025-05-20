@@ -12,8 +12,8 @@ import {
   IconButton,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { BybitTicker, BybitInstrumentInfo } from '@/services/bybit/types';
-import { fetchBybitTickers, getInstrumentsInfo } from '@/services/bybit/api';
+import { BybitTicker } from '@/services/bybit/types';
+import { fetchBybitTickers } from '@/services/bybit/api';
 import { TickerCategory } from '@/stores/sortStore';
 import { useNavigationStore } from '@/stores/navigationStore';
 
@@ -92,7 +92,6 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const router = useRouter();
   const { setAppbarTitle, setLeftButtonAction, setShowMenuButton } = useNavigationStore();
   const [ticker, setTicker] = useState<DisplayTicker | null>(null);
-  const [instrumentInfo, setInstrumentInfo] = useState<BybitInstrumentInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -137,27 +136,12 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     } 
   }, [category, symbol]);
 
-  const fetchInstrumentDetails = useCallback(async () => {
-    try {
-        const decodedSymbol = decodeURIComponent(symbol);
-        const infoList = await getInstrumentsInfo(category as string, decodedSymbol);
-        if (infoList && infoList.length > 0) {
-            setInstrumentInfo(infoList[0]);
-        } else {
-            setError(prevError => prevError || 'Instrument info not found.');
-        }
-    } catch (err: any) {
-        console.error(`Error fetching instrument info for ${symbol}:`, err.message);
-        setError(prevError => prevError || err.message || 'An unknown error occurred while fetching instrument info');
-    }
-}, [category, symbol]);
-
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    await Promise.all([fetchTickerData(), fetchInstrumentDetails()]);
+    await fetchTickerData();
     setLoading(false);
-  }, [fetchTickerData, fetchInstrumentDetails]);
+  }, [fetchTickerData]);
 
 
   useEffect(() => {
@@ -306,10 +290,10 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                      marginRight: { xs: 0, sm: '16px' },
                       padding: '4px 8px'
                 }}>
-                    <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>Category:</Typography>
+                    <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>Category</Typography>
                      <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{decodeURIComponent(category)}</Typography>
                 </Box>
-                {renderTickerDetails(ticker, instrumentInfo?.priceFilter.tickSize)}
+                {renderTickerDetails(ticker)}
             </Box>
           </Box>
         )}
