@@ -12,8 +12,8 @@ import {
   IconButton,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { BybitTicker } from '@/services/bybit/types';
-import { fetchBybitTickers } from '@/services/bybit/api';
+import { BybitTicker, BybitInstrumentInfo } from '@/services/bybit/types';
+import { fetchBybitTickers, getInstrumentsInfo } from '@/services/bybit/api';
 import { TickerCategory } from '@/stores/sortStore';
 import { useNavigationStore } from '@/stores/navigationStore';
 
@@ -21,9 +21,18 @@ interface DisplayTicker extends BybitTicker {
   priceEffect?: 'up' | 'down' | 'flat';
 }
 
-const formatNumberWithCommas = (value: string | number | undefined): string => {
+const formatNumberWithCommas = (value: string | number | undefined, tickSize?: string): string => {
   if (value === undefined || value === null) return 'N/A';
-  const numStr = String(value);
+  let numStr = String(value);
+
+  if (tickSize) {
+    const decimalPlaces = (tickSize.split('.')[1] || '').length;
+    const num = parseFloat(numStr);
+    if (!isNaN(num)) {
+      numStr = num.toFixed(decimalPlaces);
+    }
+  }
+
   const parts = numStr.split('.');
   parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
   return parts.join('.');
@@ -83,6 +92,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const router = useRouter();
   const { setAppbarTitle, setLeftButtonAction, setShowMenuButton } = useNavigationStore();
   const [ticker, setTicker] = useState<DisplayTicker | null>(null);
+  const [instrumentInfo, setInstrumentInfo] = useState<BybitInstrumentInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,9 +100,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  const fetchAndSetTicker = useCallback(async (): Promise<void> => {
-    setLoading(true);
-    setError(null);
+  const fetchTickerData = useCallback(async (): Promise<void> => {
     try {
       const tickers = await fetchBybitTickers(category as TickerCategory);
       const foundTicker = tickers.find(t => t.symbol === decodeURIComponent(symbol));
@@ -125,11 +133,32 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
       }
     } catch (err: any) {
       console.error(`Error fetching ${category}/${symbol} ticker:`, err.message);
-      setError(err.message || 'An unknown error occurred');
-    } finally {
-        setLoading(false);
-    }
+      setError(prevError => prevError || err.message || 'An unknown error occurred while fetching ticker');
+    } 
   }, [category, symbol]);
+
+  const fetchInstrumentDetails = useCallback(async () => {
+    try {
+        const decodedSymbol = decodeURIComponent(symbol);
+        const infoList = await getInstrumentsInfo(category as string, decodedSymbol);
+        if (infoList && infoList.length > 0) {
+            setInstrumentInfo(infoList[0]);
+        } else {
+            setError(prevError => prevError || 'Instrument info not found.');
+        }
+    } catch (err: any) {
+        console.error(`Error fetching instrument info for ${symbol}:`, err.message);
+        setError(prevError => prevError || err.message || 'An unknown error occurred while fetching instrument info');
+    }
+}, [category, symbol]);
+
+  const fetchAllData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    await Promise.all([fetchTickerData(), fetchInstrumentDetails()]);
+    setLoading(false);
+  }, [fetchTickerData, fetchInstrumentDetails]);
+
 
   useEffect(() => {
     if (category && symbol) {
@@ -137,8 +166,8 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         setLeftButtonAction(() => router.back());
         setShowMenuButton(false);
 
-        fetchAndSetTicker();
-        intervalRef.current = setInterval(fetchAndSetTicker, REFRESH_INTERVAL);
+        fetchAllData();
+        intervalRef.current = setInterval(fetchTickerData, REFRESH_INTERVAL);
     } else {
       setLoading(false);
       setError('Category or Symbol not provided.');
@@ -156,9 +185,9 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
        setShowMenuButton(true);
     };
 
-  }, [category, symbol, fetchAndSetTicker, setAppbarTitle, setLeftButtonAction, setShowMenuButton, router]);
+  }, [category, symbol, fetchAllData, fetchTickerData, setAppbarTitle, setLeftButtonAction, setShowMenuButton, router]);
 
-  const renderTickerDetails = (ticker: DisplayTicker) => {
+  const renderTickerDetails = (ticker: DisplayTicker, tickSize?: string) => {
     const orderedKeys: (keyof BybitTicker)[] = [
         'symbol',
         'lastPrice',
@@ -195,7 +224,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
       let valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
 
       if (key === 'lastPrice') {
-        displayValue = formatNumberWithCommas(value);
+        displayValue = formatNumberWithCommas(value, tickSize);
          const lastPriceValueSx = {
              textAlign: 'right',
              border: ticker.priceEffect === 'up' ? `1px solid ${theme.palette.success.main}` : ticker.priceEffect === 'down' ? `1px solid ${theme.palette.error.main}` : '1px solid transparent',
@@ -203,8 +232,11 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
              display: 'inline-block',
          };
          valueTypography = <Typography component="span" sx={lastPriceValueSx}>{displayValue}</Typography>;
-      } else if (['bid1Price', 'ask1Price', 'usdIndexPrice', 'indexPrice', 'markPrice', 'prevPrice24h', 'highPrice24h', 'lowPrice24h', 'prevPrice1h', 'openInterest', 'openInterestValue', 'ask1Size', 'bid1Size', 'predictedDeliveryPrice', 'basis'].includes(key)) {
-        displayValue = formatNumberWithCommas(value);
+      } else if (['bid1Price', 'ask1Price', 'usdIndexPrice', 'indexPrice', 'markPrice', 'prevPrice24h', 'highPrice24h', 'lowPrice24h', 'prevPrice1h', 'predictedDeliveryPrice'].includes(key)) {
+        displayValue = formatNumberWithCommas(value, tickSize); // Apply tickSize formatting to other price fields as well
+         valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+      } else if (['openInterest', 'openInterestValue', 'ask1Size', 'bid1Size', 'basis'].includes(key)) {
+        displayValue = formatNumberWithCommas(value); // Standard comma formatting for non-price, non-volume/turnover numbers
          valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
       } else if (key === 'volume24h' || key === 'turnover24h') {
          displayValue = formatVolumeOrTurnover(value);
@@ -249,7 +281,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   return (
     <Container maxWidth="md">
       <Paper sx={{ padding: { xs: 2, sm: 3 }, marginY: 2 }}>
-        {loading && !ticker && (
+        {loading && (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
             <CircularProgress size={40} />
           </Box>
@@ -261,7 +293,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
           </Alert>
         )}
 
-        {ticker && (
+        {!loading && ticker && (
           <Box sx={{ marginTop: 2 }}>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
                  <Box sx={{
@@ -277,7 +309,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                     <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>Category:</Typography>
                      <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{decodeURIComponent(category)}</Typography>
                 </Box>
-                {renderTickerDetails(ticker)}
+                {renderTickerDetails(ticker, instrumentInfo?.priceFilter.tickSize)}
             </Box>
           </Box>
         )}

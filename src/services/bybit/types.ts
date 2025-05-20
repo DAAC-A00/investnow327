@@ -71,3 +71,60 @@ export interface BybitApiResponse {
   retExtInfo: any;
   time: number;
 }
+
+export interface BybitInstrumentInfo {
+  symbol: string;
+  contractType: string;
+  status: string;
+  baseCoin: string;
+  quoteCoin: string;
+  launchTime: string;
+  deliveryTime: string;
+  issueTime: string;
+  settleCoin: string;
+  note: string;
+  priceFilter: {
+    minPrice: string;
+    maxPrice: string;
+    tickSize: string;
+  };
+  lotSizeFilter: {
+    basePrecision?: string; // Made optional as per API example (BTCUSDT has it, some might not)
+    quotePrecision?: string; // Made optional
+    minOrderQty: string;
+    maxOrderQty: string;
+    qtyStep: string;
+    postOnlyMaxOrderQty?: string; // Made optional
+    minOrderAmt?: string; // Added optional field based on API response
+    maxOrderAmt?: string; // Added optional field based on API response
+  };
+  unifiedMarginTrade: boolean;
+  fundingInterval: number;
+  leverageFilter: {
+    minLeverage: string;
+    maxLeverage: string;
+    leverageStep: string;
+  };
+  riskParameters: {
+    limit: string;
+    maintainMargin: string;
+    startingMargin: string;
+    isLowestRisk: number;
+    maxTradeNum: string;
+    maxTradeAmt: string;
+    minTradeAmt: string;
+    tickSize: string;
+  };
+  marketStatus: string;
+}
+
+export interface BybitInstrumentInfoResponse {
+  retCode: number;
+  retMsg: string;
+  result: {
+    category: string;
+    list: BybitInstrumentInfo[];
+  };
+  retExtInfo: any;
+  time: number;
+}
