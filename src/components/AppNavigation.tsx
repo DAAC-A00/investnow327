@@ -62,19 +62,19 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
         setAppbarTitle('Home'); // Assuming you have a default title for home or handle as needed
     }
     // Handle detail page titles if necessary, or set a generic one
-    else if (pathname.startsWith('/bybit-spot-tickers') ||
-               pathname.startsWith('/bybit-linear-tickers') ||
-               pathname.startsWith('/bybit-inverse-tickers')) {
-      // Optionally, set a more specific title e.g., "Ticker Details"
-      // Or extract from path if possible and needed
+    // Updated paths for ticker details
+    else if (pathname.startsWith('/tickers/bybit/spot/') ||
+               pathname.startsWith('/tickers/bybit/linear/') ||
+               pathname.startsWith('/tickers/bybit/inverse/')) {
       setAppbarTitle('Ticker Details');
     }
     // Add other conditions for other paths if needed
   }, [pathname, navLinks, setAppbarTitle]);
 
-  const isDetailPage = pathname.startsWith('/bybit-spot-tickers') ||
-                       pathname.startsWith('/bybit-linear-tickers') ||
-                       pathname.startsWith('/bybit-inverse-tickers');
+  // Updated paths for isDetailPage check
+  const isDetailPage = pathname.startsWith('/tickers/bybit/spot/') ||
+                       pathname.startsWith('/tickers/bybit/linear/') ||
+                       pathname.startsWith('/tickers/bybit/inverse/');
 
   const handleNavigate = (path: string) => {
     if (path === '#') return;
@@ -168,7 +168,8 @@ export default function AppNavigation({ children }: { children: React.ReactNode 
       >
         <Toolbar />
         {children}
-        {isMobile && !isDetailPage && (
+        {/* Updated condition to hide BottomNavigation when back button is shown */}
+        {isMobile && showMenuButton && !isDetailPage && (
           <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: (theme: Theme) => theme.zIndex.drawer + 1 }} elevation={3}>
             <BottomNavigation
               showLabels
