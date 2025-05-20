@@ -10,10 +10,11 @@ import {
   Alert,
   useTheme,
   IconButton,
+  Divider,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { BybitTicker } from '@/services/bybit/types';
-import { fetchBybitTickers } from '@/services/bybit/api';
+import { BybitTicker, BybitInstrumentInfo } from '@/services/bybit/types';
+import { fetchBybitTickers, getInstrumentsInfo } from '@/services/bybit/api';
 import { TickerCategory } from '@/stores/sortStore';
 import { useNavigationStore } from '@/stores/navigationStore';
 
@@ -92,8 +93,11 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const router = useRouter();
   const { setAppbarTitle, setLeftButtonAction, setShowMenuButton } = useNavigationStore();
   const [ticker, setTicker] = useState<DisplayTicker | null>(null);
+  const [instrumentInfo, setInstrumentInfo] = useState<BybitInstrumentInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [instrumentError, setInstrumentError] = useState<string | null>(null);
+
 
   const prevTickerRef = useRef<BybitTicker | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -128,20 +132,37 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
             timeoutRef.current.set(foundTicker.symbol, newTimeout);
         }
       } else {
-        setError('Ticker not found.');
+        setError(prevError => prevError || 'Ticker not found.');
       }
     } catch (err: any) {
       console.error(`Error fetching ${category}/${symbol} ticker:`, err.message);
       setError(prevError => prevError || err.message || 'An unknown error occurred while fetching ticker');
-    } 
+    }
   }, [category, symbol]);
+
+  const fetchInstrumentInfoData = useCallback(async (): Promise<void> => {
+    try {
+      const decodedSymbol = decodeURIComponent(symbol);
+      const instrumentInfoData = await getInstrumentsInfo(category as string, decodedSymbol);
+      if (instrumentInfoData && instrumentInfoData.length > 0) {
+        setInstrumentInfo(instrumentInfoData[0]);
+      } else {
+        setInstrumentError('Instrument information not found.');
+      }
+    } catch (err: any) {
+      console.error(`Error fetching instrument info for ${category}/${symbol}:`, err.message);
+      setInstrumentError(err.message || 'An unknown error occurred while fetching instrument information');
+    }
+  }, [category, symbol]);
+
 
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    await fetchTickerData();
+    setInstrumentError(null);
+    await Promise.all([fetchTickerData(), fetchInstrumentInfoData()]);
     setLoading(false);
-  }, [fetchTickerData]);
+  }, [fetchTickerData, fetchInstrumentInfoData]);
 
 
   useEffect(() => {
@@ -151,7 +172,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         setShowMenuButton(false);
 
         fetchAllData();
-        intervalRef.current = setInterval(fetchTickerData, REFRESH_INTERVAL);
+        intervalRef.current = setInterval(fetchTickerData, REFRESH_INTERVAL); // Only ticker data is refreshed frequently
     } else {
       setLoading(false);
       setError('Category or Symbol not provided.');
@@ -171,7 +192,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
 
   }, [category, symbol, fetchAllData, fetchTickerData, setAppbarTitle, setLeftButtonAction, setShowMenuButton, router]);
 
-  const renderTickerDetails = (ticker: DisplayTicker, tickSize?: string) => {
+  const renderTickerDetails = (tickerToRender: DisplayTicker, tickSize?: string) => {
     const orderedKeys: (keyof BybitTicker)[] = [
         'symbol',
         'lastPrice',
@@ -201,17 +222,17 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     ];
 
     return orderedKeys
-        .filter(key => ticker[key] !== undefined && ticker[key] !== null && String(ticker[key]).trim() !== '')
+        .filter(key => tickerToRender[key] !== undefined && tickerToRender[key] !== null && String(tickerToRender[key]).trim() !== '')
         .map((key) => {
-      const value = ticker[key];
-      let displayValue = String(value); 
+      const value = tickerToRender[key];
+      let displayValue = String(value);
       let valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
 
       if (key === 'lastPrice') {
         displayValue = formatNumberWithCommas(value, tickSize);
          const lastPriceValueSx = {
              textAlign: 'right',
-             border: ticker.priceEffect === 'up' ? `1px solid ${theme.palette.success.main}` : ticker.priceEffect === 'down' ? `1px solid ${theme.palette.error.main}` : '1px solid transparent',
+             border: tickerToRender.priceEffect === 'up' ? `1px solid ${theme.palette.success.main}` : tickerToRender.priceEffect === 'down' ? `1px solid ${theme.palette.error.main}` : '1px solid transparent',
              padding: '0 4px',
              display: 'inline-block',
          };
@@ -226,7 +247,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
          displayValue = formatVolumeOrTurnover(value);
          valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
       } else if (key === 'price24hPcnt') {
-        if (typeof value === 'string') { 
+        if (typeof value === 'string') {
             displayValue = value.endsWith('%') ? value : `${value}%`;
             const numericPart = parseFloat(value.replace(/[+%]/g, ''));
             let color = 'text.primary';
@@ -248,7 +269,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         <Box key={key} sx={{
             marginBottom: 1,
             width: { xs: '100%', sm: 'calc(50% - 8px)' },
-            marginRight: { xs: 0, sm: key === 'usdIndexPrice' || (orderedKeys.indexOf(key as keyof BybitTicker) % 2 !== 0) ? 0 : '16px' }, 
+            marginRight: { xs: 0, sm: key === 'usdIndexPrice' || (orderedKeys.indexOf(key as keyof BybitTicker) % 2 !== 0) ? 0 : '16px' },
             wordBreak: 'break-word',
             display: 'flex',
             justifyContent: 'space-between',
@@ -260,6 +281,88 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         </Box>
       );
     });
+  };
+
+ const renderInstrumentInfoDetails = (info: BybitInstrumentInfo) => {
+    const camelToTitleCase = (camelCase: string) => camelCase
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, (str) => str.toUpperCase());
+
+    const mainKeys: (keyof BybitInstrumentInfo)[] = [
+        'symbol', 'contractType', 'status', 'baseCoin', 'quoteCoin', 'settleCoin',
+        'launchTime', 'deliveryTime', 'issueTime', 'fundingInterval', 'unifiedMarginTrade', 'marketStatus'
+    ];
+
+    const renderNestedObject = (obj: any, title: string) => {
+      if (!obj || typeof obj !== 'object' || Object.keys(obj).length === 0) return null;
+      return (
+        <Box sx={{ mt: 2, mb: 1, width: '100%' }}>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>{title}</Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
+            {Object.entries(obj).map(([key, value]) => (
+              <Box key={key} sx={{
+                  marginBottom: 1,
+                  width: { xs: '100%', sm: 'calc(50% - 8px)' },
+                  marginRight: { xs: 0, sm: (Object.keys(obj).indexOf(key) % 2 !== 0) ? 0 : '16px' },
+                  wordBreak: 'break-word',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '4px 0'
+              }}>
+                  <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{camelToTitleCase(key)}</Typography>
+                  <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{String(value)}</Typography>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      );
+    };
+
+    return (
+        <Box sx={{ mt: 3 }}>
+            <Typography variant="h5" gutterBottom sx={{textAlign: 'center', fontWeight: 'bold' }}>Instrument Information</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
+                {mainKeys.map(key => {
+                    const value = info[key];
+                    if (value === undefined || value === null || String(value).trim() === '') return null;
+                    let displayValue = String(value);
+                    if (key === 'launchTime' || key === 'deliveryTime' || key === 'issueTime') {
+                        displayValue = formatTimestamp(String(value));
+                    } else if (typeof value === 'boolean') {
+                        displayValue = value ? 'Yes' : 'No';
+                    }
+
+                    return (
+                        <Box key={key} sx={{
+                            marginBottom: 1,
+                            width: { xs: '100%', sm: 'calc(50% - 8px)' },
+                            marginRight: { xs: 0, sm: (mainKeys.indexOf(key) % 2 !== 0) ? 0 : '16px' },
+                            wordBreak: 'break-word',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '4px 0'
+                        }}>
+                            <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{camelToTitleCase(key)}</Typography>
+                            <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>
+                        </Box>
+                    );
+                })}
+            </Box>
+            {renderNestedObject(info.priceFilter, 'Price Filter')}
+            {renderNestedObject(info.lotSizeFilter, 'Lot Size Filter')}
+            {renderNestedObject(info.leverageFilter, 'Leverage Filter')}
+            {/* RiskParameters might be too verbose, consider if it's needed or how to best display it */}
+            {/* {renderNestedObject(info.riskParameters, 'Risk Parameters')} */}
+             {info.note && info.note.trim() !== '' && (
+                <Box sx={{ mt: 2, width: '100%' }}>
+                    <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Note</Typography>
+                    <Typography variant="body2">{info.note}</Typography>
+                </Box>
+            )}
+        </Box>
+    );
   };
 
   return (
@@ -279,12 +382,13 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
 
         {!loading && ticker && (
           <Box sx={{ marginTop: 2 }}>
+             <Typography variant="h5" gutterBottom sx={{textAlign: 'center', fontWeight: 'bold' }}>Market Ticker Information</Typography>
             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
                  <Box sx={{
-                    marginBottom: 1, 
-                    wordBreak: 'break-word', 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
+                    marginBottom: 1,
+                    wordBreak: 'break-word',
+                    display: 'flex',
+                    justifyContent: 'space-between',
                     alignItems: 'center',
                      width: { xs: '100%', sm: 'calc(50% - 8px)' },
                      marginRight: { xs: 0, sm: '16px' },
@@ -293,7 +397,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                     <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>Category</Typography>
                      <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{decodeURIComponent(category)}</Typography>
                 </Box>
-                {renderTickerDetails(ticker)}
+                {renderTickerDetails(ticker, instrumentInfo?.priceFilter?.tickSize)}
             </Box>
           </Box>
         )}
@@ -301,6 +405,24 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         {!loading && !ticker && !error && (
              <Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 3}}>
                 No ticker data available.
+            </Typography>
+        )}
+
+        {instrumentError && (
+            <Alert severity="warning" sx={{ marginY: 2, mt: ticker ? 2 : 0 }}>
+                Could not load instrument details: {instrumentError}
+            </Alert>
+        )}
+
+        {!loading && instrumentInfo && (
+            <>
+                <Divider sx={{ my: 3 }} />
+                {renderInstrumentInfoDetails(instrumentInfo)}
+            </>
+        )}
+         {!loading && !instrumentInfo && !instrumentError && ticker && (
+            <Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 3}}>
+                No instrument information available.
             </Typography>
         )}
 
