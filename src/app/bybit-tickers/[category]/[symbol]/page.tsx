@@ -102,6 +102,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const prevTickerRef = useRef<BybitTicker | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const lastUsdIndexPriceRef = useRef<string | null>(null); // Added this ref
 
   const fetchTickerData = useCallback(async (): Promise<void> => {
     try {
@@ -118,9 +119,16 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
           else priceEffect = 'flat';
         }
 
+        // Logic to handle usdIndexPrice persistence
+        if (foundTicker.usdIndexPrice && foundTicker.usdIndexPrice.trim() !== '') {
+          lastUsdIndexPriceRef.current = foundTicker.usdIndexPrice;
+        } else if (lastUsdIndexPriceRef.current) {
+          foundTicker.usdIndexPrice = lastUsdIndexPriceRef.current;
+        }
+
         const displayTicker: DisplayTicker = { ...foundTicker, priceEffect };
         setTicker(displayTicker);
-        prevTickerRef.current = foundTicker;
+        prevTickerRef.current = { ...foundTicker }; // Store a copy to avoid mutation issues
 
         if (priceEffect === 'up' || priceEffect === 'down') {
             const existingTimeout = timeoutRef.current.get(foundTicker.symbol);
