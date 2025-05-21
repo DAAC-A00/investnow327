@@ -1,4 +1,4 @@
-import { BybitApiResponse, BybitTicker, BybitApiResponseTicker, BybitInstrumentInfoResponse, BybitInstrumentInfo } from './types';
+import { BybitApiResponse, BybitTicker, BybitApiResponseTicker, BybitInstrumentInfoResponse, BybitInstrumentInfo, BybitFundingHistoryResponse, FundingHistoryEntry } from './types';
 
 const BASE_API_URL = 'https://api.bybit.com/v5/market';
 
@@ -96,4 +96,25 @@ export async function getInstrumentsInfo(category: string, symbol: string): Prom
   } else {
     throw new Error(data.retMsg || 'Invalid API response structure for instrument info (symbol: ${symbol})');
   }
+}
+
+export async function fetchFundingRateHistory(
+  category: 'linear' | 'inverse',
+  symbol: string,
+  limit: number = 10 // Default limit to 10 as it's a history view
+): Promise<FundingHistoryEntry[]> {
+  const API_ENDPOINT = `${BASE_API_URL}/funding/history?category=${category}&symbol=${symbol}&limit=${limit}`;
+  const response = await fetch(API_ENDPOINT);
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.retMsg || `Failed to fetch funding rate history for ${symbol}`);
+  }
+  const data: BybitFundingHistoryResponse = await response.json();
+  if (data.retCode === 0 && data.result && data.result.list) {
+    return data.result.list;
+  } else if (data.retCode === 0 && (!data.result || !data.result.list)) {
+    // Handle cases where API returns success but list is empty or missing (e.g. spot symbols)
+    return []; 
+  }
+  throw new Error(data.retMsg || `Invalid API response structure for funding rate history (symbol: ${symbol})`);
 }

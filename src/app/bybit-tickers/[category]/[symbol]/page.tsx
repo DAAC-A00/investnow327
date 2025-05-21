@@ -11,10 +11,13 @@ import {
   useTheme,
   IconButton,
   Divider,
+  List,
+  ListItem,
+  ListItemText,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
-import { BybitTicker, BybitInstrumentInfo } from '@/services/bybit/types';
-import { fetchBybitTickers, getInstrumentsInfo } from '@/services/bybit/api';
+import { BybitTicker, BybitInstrumentInfo, FundingHistoryEntry } from '@/services/bybit/types';
+import { fetchBybitTickers, getInstrumentsInfo, fetchFundingRateHistory } from '@/services/bybit/api';
 import { TickerCategory } from '@/stores/sortStore';
 import { useNavigationStore } from '@/stores/navigationStore';
 
@@ -78,6 +81,7 @@ const formatTimestamp = (timestamp: string | undefined): string => {
 
 const REFRESH_INTERVAL = 1000;
 const PRICE_EFFECT_DURATION = 200;
+const FUNDING_HISTORY_LIMIT = 15;
 
 interface TickerDetailPageProps {
   params: {
@@ -94,15 +98,18 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const { setAppbarTitle, setLeftButtonAction, setShowMenuButton } = useNavigationStore();
   const [ticker, setTicker] = useState<DisplayTicker | null>(null);
   const [instrumentInfo, setInstrumentInfo] = useState<BybitInstrumentInfo | null>(null);
+  const [fundingHistory, setFundingHistory] = useState<FundingHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [instrumentError, setInstrumentError] = useState<string | null>(null);
+  const [fundingHistoryError, setFundingHistoryError] = useState<string | null>(null);
+  const [loadingFundingHistory, setLoadingFundingHistory] = useState(true);
 
 
   const prevTickerRef = useRef<BybitTicker | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const lastUsdIndexPriceRef = useRef<string | null>(null); // Added this ref
+  const lastUsdIndexPriceRef = useRef<string | null>(null);
 
   const fetchTickerData = useCallback(async (): Promise<void> => {
     try {
@@ -119,7 +126,6 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
           else priceEffect = 'flat';
         }
 
-        // Logic to handle usdIndexPrice persistence
         if (foundTicker.usdIndexPrice && foundTicker.usdIndexPrice.trim() !== '') {
           lastUsdIndexPriceRef.current = foundTicker.usdIndexPrice;
         } else if (lastUsdIndexPriceRef.current) {
@@ -128,7 +134,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
 
         const displayTicker: DisplayTicker = { ...foundTicker, priceEffect };
         setTicker(displayTicker);
-        prevTickerRef.current = { ...foundTicker }; // Store a copy to avoid mutation issues
+        prevTickerRef.current = { ...foundTicker };
 
         if (priceEffect === 'up' || priceEffect === 'down') {
             const existingTimeout = timeoutRef.current.get(foundTicker.symbol);
@@ -163,14 +169,41 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     }
   }, [category, symbol]);
 
+  const fetchFundingHistoryData = useCallback(async (): Promise<void> => {
+    if (category === 'spot') {
+      setLoadingFundingHistory(false);
+      setFundingHistory([]);
+      return;
+    }
+    setLoadingFundingHistory(true);
+    setFundingHistoryError(null);
+    try {
+      const decodedSymbol = decodeURIComponent(symbol);
+      const history = await fetchFundingRateHistory(category as 'linear' | 'inverse', decodedSymbol, FUNDING_HISTORY_LIMIT);
+      setFundingHistory(history);
+    } catch (err: any) {
+      console.error(`Error fetching funding rate history for ${category}/${symbol}:`, err.message);
+      setFundingHistoryError(err.message || 'An unknown error occurred while fetching funding rate history');
+    } finally {
+      setLoadingFundingHistory(false);
+    }
+  }, [category, symbol]);
+
 
   const fetchAllData = useCallback(async () => {
     setLoading(true);
     setError(null);
     setInstrumentError(null);
-    await Promise.all([fetchTickerData(), fetchInstrumentInfoData()]);
+    setFundingHistoryError(null);
+    
+    const promises = [fetchTickerData(), fetchInstrumentInfoData()];
+    if (category !== 'spot') {
+        promises.push(fetchFundingHistoryData());
+    }
+
+    await Promise.all(promises);
     setLoading(false);
-  }, [fetchTickerData, fetchInstrumentInfoData]);
+  }, [fetchTickerData, fetchInstrumentInfoData, fetchFundingHistoryData, category]);
 
 
   useEffect(() => {
@@ -180,7 +213,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         setShowMenuButton(false);
 
         fetchAllData();
-        intervalRef.current = setInterval(fetchTickerData, REFRESH_INTERVAL); // Only ticker data is refreshed frequently
+        intervalRef.current = setInterval(fetchTickerData, REFRESH_INTERVAL);
     } else {
       setLoading(false);
       setError('Category or Symbol not provided.');
@@ -246,10 +279,11 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
          };
          valueTypography = <Typography component="span" sx={lastPriceValueSx}>{displayValue}</Typography>;
       } else if (['bid1Price', 'ask1Price', 'usdIndexPrice', 'indexPrice', 'markPrice', 'prevPrice24h', 'highPrice24h', 'lowPrice24h', 'prevPrice1h', 'predictedDeliveryPrice'].includes(key)) {
-        displayValue = formatNumberWithCommas(value, tickSize); // Apply tickSize formatting to other price fields as well
+        displayValue = formatNumberWithCommas(value, tickSize);
          valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
-      } else if (['openInterest', 'openInterestValue', 'ask1Size', 'bid1Size', 'basis'].includes(key)) {
-        displayValue = formatNumberWithCommas(value); // Standard comma formatting for non-price, non-volume/turnover numbers
+      } else if (['openInterest', 'openInterestValue', 'ask1Size', 'bid1Size', 'basis', 'fundingRate'].includes(key)) {
+        // Added fundingRate here for consistent numeric formatting if needed, though it's often a small decimal
+        displayValue = formatNumberWithCommas(value); 
          valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
       } else if (key === 'volume24h' || key === 'turnover24h') {
          displayValue = formatVolumeOrTurnover(value);
@@ -361,8 +395,6 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
             {renderNestedObject(info.priceFilter, 'Price Filter')}
             {renderNestedObject(info.lotSizeFilter, 'Lot Size Filter')}
             {renderNestedObject(info.leverageFilter, 'Leverage Filter')}
-            {/* RiskParameters might be too verbose, consider if it's needed or how to best display it */}
-            {/* {renderNestedObject(info.riskParameters, 'Risk Parameters')} */}
              {info.note && info.note.trim() !== '' && (
                 <Box sx={{ mt: 2, width: '100%' }}>
                     <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>Note</Typography>
@@ -372,6 +404,46 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         </Box>
     );
   };
+
+  const renderFundingRateHistoryDetails = (history: FundingHistoryEntry[]) => {
+    if (category === 'spot') return null;
+    if (loadingFundingHistory) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px' }}>
+          <CircularProgress size={30} />
+        </Box>
+      );
+    }
+    if (fundingHistoryError) {
+      return <Alert severity="warning" sx={{ marginY: 2 }}>Failed to load funding rate history: {fundingHistoryError}</Alert>;
+    }
+    if (!history || history.length === 0) {
+      return <Typography sx={{ textAlign: 'center', color: 'text.secondary', mt: 2 }}>No funding rate history available.</Typography>;
+    }
+
+    return (
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', fontWeight: 'bold' }}>Funding Rate History</Typography>
+        <List dense sx={{ maxHeight: 300, overflow: 'auto', border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
+          {history.map((entry, index) => (
+            <ListItem key={index} divider={index < history.length -1 } sx={{ display: 'flex', justifyContent: 'space-between', paddingY: '2px'}}>
+              <ListItemText 
+                primary={formatTimestamp(entry.fundingRateTimestamp)} 
+                secondary={`Rate: ${entry.fundingRate}`}
+                primaryTypographyProps={{ variant: 'body2' }}
+                secondaryTypographyProps={{ variant: 'caption' }}
+                sx={{flex: '1 1 auto', textAlign: 'left'}}
+              />
+               <Typography variant="body2" sx={{flex: '0 0 auto', textAlign: 'right', fontWeight: parseFloat(entry.fundingRate) < 0 ? 'bold' : 'normal', color: parseFloat(entry.fundingRate) < 0 ? theme.palette.error.main : theme.palette.success.main }}>
+                {(parseFloat(entry.fundingRate) * 100).toFixed(4)}%
+              </Typography>
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+    );
+  };
+
 
   return (
     <Container maxWidth="md">
@@ -415,9 +487,28 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                 No ticker data available.
             </Typography>
         )}
+        
+        {/* Funding Rate History Section - only for non-spot */}
+        {category !== 'spot' && !loading && (
+            <>
+                <Divider sx={{ my: 3 }} />
+                {renderFundingRateHistoryDetails(fundingHistory)}
+            </>
+        )}
+         {/* Separate loading/error for funding history if main data loaded */} 
+        {category !== 'spot' && loading && loadingFundingHistory && !error && (
+             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px', mt: 2 }}>
+                <CircularProgress size={30} />
+                <Typography sx={{ml: 1}}>Loading Funding History...</Typography>
+            </Box>
+        )}
+        {category !== 'spot' && !loading && fundingHistoryError && !error && (
+             <Alert severity="warning" sx={{ marginY: 2, mt: 2 }}>Failed to load funding rate history: {fundingHistoryError}</Alert>
+        )}
+
 
         {instrumentError && (
-            <Alert severity="warning" sx={{ marginY: 2, mt: ticker ? 2 : 0 }}>
+            <Alert severity="warning" sx={{ marginY: 2, mt: (ticker || (category !=='spot' && fundingHistory.length > 0)) ? 2 : 0 }}>
                 Could not load instrument details: {instrumentError}
             </Alert>
         )}

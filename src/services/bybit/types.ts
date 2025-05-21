@@ -134,3 +134,20 @@ export interface BybitInstrumentInfoResponse {
   retExtInfo: any;
   time: number;
 }
+
+export interface FundingHistoryEntry {
+  symbol: string;
+  fundingRate: string;
+  fundingRateTimestamp: string;
+}
+
+export interface BybitFundingHistoryResponse {
+  retCode: number;
+  retMsg: string;
+  result: {
+    category: string;
+    list: FundingHistoryEntry[];
+  };
+  retExtInfo: any;
+  time: number;
+}
