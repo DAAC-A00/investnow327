@@ -14,6 +14,8 @@ import {
   List,
   ListItem,
   ListItemText,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { BybitTicker, BybitInstrumentInfo, FundingHistoryEntry } from '@/services/bybit/types';
@@ -104,12 +106,17 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const [instrumentError, setInstrumentError] = useState<string | null>(null);
   const [fundingHistoryError, setFundingHistoryError] = useState<string | null>(null);
   const [loadingFundingHistory, setLoadingFundingHistory] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
 
 
   const prevTickerRef = useRef<BybitTicker | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const lastUsdIndexPriceRef = useRef<string | null>(null);
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setActiveTab(newValue);
+  };
 
   const fetchTickerData = useCallback(async (): Promise<void> => {
     try {
@@ -444,7 +451,6 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     );
   };
 
-
   return (
     <Container maxWidth="md">
       <Paper sx={{ padding: { xs: 2, sm: 3 }, marginY: 2 }}>
@@ -460,71 +466,88 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
           </Alert>
         )}
 
-        {!loading && ticker && (
-          <Box sx={{ marginTop: 2 }}>
-             <Typography variant="h5" gutterBottom sx={{textAlign: 'center', fontWeight: 'bold' }}>Market Ticker Information</Typography>
-            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
-                 <Box sx={{
-                    marginBottom: 1,
-                    wordBreak: 'break-word',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                     width: { xs: '100%', sm: 'calc(50% - 8px)' },
-                     marginRight: { xs: 0, sm: '16px' },
-                      padding: '4px 8px'
-                }}>
-                    <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>Category</Typography>
-                     <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{decodeURIComponent(category)}</Typography>
+        {!loading && !error && (
+          <>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', marginBottom: 2 }}>
+              <Tabs value={activeTab} onChange={handleTabChange} aria-label="Ticker Details Tabs" centered>
+                <Tab label="Market & Instrument Info" id="tab-market-instrument" aria-controls="tabpanel-market-instrument" />
+                {category !== 'spot' && <Tab label="Funding Rate History" id="tab-funding-history" aria-controls="tabpanel-funding-history" />}
+              </Tabs>
+            </Box>
+
+            {/* Tab Panel for Market & Instrument Info */}
+            <Box role="tabpanel" hidden={activeTab !== 0} id="tabpanel-market-instrument" aria-labelledby="tab-market-instrument">
+              {activeTab === 0 && (
+                <>
+                  {ticker && (
+                    <Box sx={{ marginTop: 2 }}>
+                      <Typography variant="h5" gutterBottom sx={{textAlign: 'center', fontWeight: 'bold' }}>Market Ticker Information</Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1, sm: 2 } }}>
+                        <Box sx={{
+                            marginBottom: 1,
+                            wordBreak: 'break-word',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            width: { xs: '100%', sm: 'calc(50% - 8px)' },
+                            marginRight: { xs: 0, sm: '16px' },
+                            padding: '4px 8px'
+                        }}>
+                          <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>Category</Typography>
+                          <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{decodeURIComponent(category)}</Typography>
+                        </Box>
+                        {renderTickerDetails(ticker, instrumentInfo?.priceFilter?.tickSize)}
+                      </Box>
+                    </Box>
+                  )}
+                  {!ticker && !error && (
+                    <Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 3}}>
+                        No ticker data available.
+                    </Typography>
+                  )}
+
+                  {instrumentError && (
+                    <Alert severity="warning" sx={{ marginY: 2, mt: (ticker) ? 2 : 0 }}>
+                        Could not load instrument details: {instrumentError}
+                    </Alert>
+                  )}
+                  {instrumentInfo && (
+                    <>
+                      <Divider sx={{ my: 3 }} />
+                      {renderInstrumentInfoDetails(instrumentInfo)}
+                    </>
+                  )}
+                  {!instrumentInfo && !instrumentError && ticker && (
+                    <Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 3}}>
+                        No instrument information available.
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Box>
+
+            {/* Tab Panel for Funding Rate History */}
+            {category !== 'spot' && (
+                <Box role="tabpanel" hidden={activeTab !== 1} id="tabpanel-funding-history" aria-labelledby="tab-funding-history">
+                    {activeTab === 1 && (
+                        <>
+                            {renderFundingRateHistoryDetails(fundingHistory)}
+                            {/* Loading/Error specifically for funding history if it hasn't loaded with main data or independently */} 
+                            {loadingFundingHistory && !fundingHistoryError && (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px', mt: 2 }}>
+                                    <CircularProgress size={30} />
+                                    <Typography sx={{ml: 1}}>Loading Funding History...</Typography>
+                                </Box>
+                            )}
+                            {!loadingFundingHistory && fundingHistoryError && (
+                                <Alert severity="warning" sx={{ marginY: 2, mt: 2 }}>Failed to load funding rate history: {fundingHistoryError}</Alert>
+                            )}
+                        </>
+                    )}
                 </Box>
-                {renderTickerDetails(ticker, instrumentInfo?.priceFilter?.tickSize)}
-            </Box>
-          </Box>
+            )}
+          </>
         )}
-
-        {!loading && !ticker && !error && (
-             <Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 3}}>
-                No ticker data available.
-            </Typography>
-        )}
-        
-        {/* Funding Rate History Section - only for non-spot */}
-        {category !== 'spot' && !loading && (
-            <>
-                <Divider sx={{ my: 3 }} />
-                {renderFundingRateHistoryDetails(fundingHistory)}
-            </>
-        )}
-         {/* Separate loading/error for funding history if main data loaded */} 
-        {category !== 'spot' && loading && loadingFundingHistory && !error && (
-             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px', mt: 2 }}>
-                <CircularProgress size={30} />
-                <Typography sx={{ml: 1}}>Loading Funding History...</Typography>
-            </Box>
-        )}
-        {category !== 'spot' && !loading && fundingHistoryError && !error && (
-             <Alert severity="warning" sx={{ marginY: 2, mt: 2 }}>Failed to load funding rate history: {fundingHistoryError}</Alert>
-        )}
-
-
-        {instrumentError && (
-            <Alert severity="warning" sx={{ marginY: 2, mt: (ticker || (category !=='spot' && fundingHistory.length > 0)) ? 2 : 0 }}>
-                Could not load instrument details: {instrumentError}
-            </Alert>
-        )}
-
-        {!loading && instrumentInfo && (
-            <>
-                <Divider sx={{ my: 3 }} />
-                {renderInstrumentInfoDetails(instrumentInfo)}
-            </>
-        )}
-         {!loading && !instrumentInfo && !instrumentError && ticker && (
-            <Typography sx={{textAlign: 'center', color: 'text.secondary', mt: 3}}>
-                No instrument information available.
-            </Typography>
-        )}
-
       </Paper>
     </Container>
   );
