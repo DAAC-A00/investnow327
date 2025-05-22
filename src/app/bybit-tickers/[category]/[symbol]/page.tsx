@@ -89,7 +89,14 @@ const formatTimestamp = (timestamp: string | undefined): string => {
     const numTimestamp = parseInt(timestamp, 10);
     if (isNaN(numTimestamp) || numTimestamp === 0) return 'N/A';
     try {
-        return new Date(numTimestamp).toLocaleString();
+        const date = new Date(numTimestamp);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        const seconds = String(date.getSeconds()).padStart(2, '0');
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     } catch (e) {
         return 'Invalid Date';
     }
@@ -472,9 +479,10 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     return (
       <Box sx={{ mt: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb:0 }}> </Typography>
             <FormControlLabel
                 control={<Switch checked={showAnnualizedRate} onChange={handleAnnualizedRateToggle} />}
-                label=""
+                label={""}
                 sx={{mr: 0}} />
         </Box>
         <List dense sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
@@ -484,15 +492,17 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                 : entry.numericRate8h;
             
             const displayRateString = (rateToDisplay >= 0 ? '+' : '') + rateToDisplay.toFixed(4) + '%';
-            const isRateNegativeForDisplay = showAnnualizedRate ? (entry.numericRate8h * 3 * 365 < 0) : entry.isNegative;
+            // The color and font weight for both the main rate and the base rate secondary text 
+            // should be based on the original 8-hour rate (entry.isNegative)
+            const color = entry.isNegative ? theme.palette.error.main : theme.palette.success.main; 
+            const fontWeight = 'normal';
 
             return (
                 <ListItem key={index} divider={index < history.length -1 } sx={{ display: 'flex', justifyContent: 'space-between', paddingY: '2px'}}>
                 <ListItemText 
                     primary={formatTimestamp(entry.fundingRateTimestamp)} 
-                    secondary={`${entry.originalFundingRateFromApi}%`}
+                    secondary={<Typography component="span" variant="caption" sx={{ color: color, fontWeight: fontWeight }}>{`${entry.originalFundingRateFromApi}%`}</Typography>}
                     primaryTypographyProps={{ variant: 'body2' }}
-                    secondaryTypographyProps={{ variant: 'caption' }}
                     sx={{flex: '1 1 auto', textAlign: 'left'}}
                 />
                 <Typography 
@@ -500,8 +510,8 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                     sx={{
                         flex: '0 0 auto', 
                         textAlign: 'right', 
-                        fontWeight: isRateNegativeForDisplay ? 'bold' : 'normal', 
-                        color: isRateNegativeForDisplay ? theme.palette.error.main : theme.palette.success.main 
+                        fontWeight: fontWeight, 
+                        color: color 
                     }}>
                     {displayRateString}
                 </Typography>
@@ -532,13 +542,13 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
           <>
             <Box sx={{ borderBottom: 1, borderColor: 'divider', marginBottom: 2 }}>
               <Tabs value={activeTab} onChange={handleTabChange} aria-label="Ticker Details Tabs" centered>
-                <Tab label="Market & Instrument Info" id="tab-market-instrument" aria-controls="tabpanel-market-instrument" />
-                {category !== 'spot' && <Tab label="Funding Rate History" id="tab-funding-history" aria-controls="tabpanel-funding-history" />}
+                <Tab label="Info" id="tab-info" aria-controls="tabpanel-info" />
+                {category !== 'spot' && <Tab label="Funding Rate" id="tab-funding-history" aria-controls="tabpanel-funding-history" />}
               </Tabs>
             </Box>
 
             {/* Tab Panel for Market & Instrument Info */}
-            <Box role="tabpanel" hidden={activeTab !== 0} id="tabpanel-market-instrument" aria-labelledby="tab-market-instrument">
+            <Box role="tabpanel" hidden={activeTab !== 0} id="tabpanel-info" aria-labelledby="tab-info">
               {activeTab === 0 && (
                 <>
                   {ticker && (
