@@ -293,7 +293,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         .map((key) => {
       const value = tickerToRender[key];
       let displayValue = String(value);
-      let valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+      let valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>;
 
       if (key === 'lastPrice') {
         displayValue = formatNumberWithCommas(value, tickSize);
@@ -306,13 +306,13 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
          valueTypography = <Typography component="span" sx={lastPriceValueSx}>{displayValue}</Typography>;
       } else if (['bid1Price', 'ask1Price', 'usdIndexPrice', 'indexPrice', 'markPrice', 'prevPrice24h', 'highPrice24h', 'lowPrice24h', 'prevPrice1h', 'predictedDeliveryPrice'].includes(key)) {
         displayValue = formatNumberWithCommas(value, tickSize);
-         valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+         valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>;
       } else if (['openInterest', 'openInterestValue', 'ask1Size', 'bid1Size', 'basis', 'fundingRate'].includes(key)) {
         displayValue = formatNumberWithCommas(value); 
-         valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+         valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>;
       } else if (key === 'volume24h' || key === 'turnover24h') {
          displayValue = formatVolumeOrTurnover(value);
-         valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+         valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>;
       } else if (key === 'price24hPcnt') {
         if (typeof value === 'string') {
             const numericPart = parseFloat(value.replace(/[+%]/g, ''));
@@ -322,14 +322,14 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                 if (numericPart > 0) color = 'success.main';
                 else if (numericPart < 0) color = 'error.main';
             }
-            valueTypography = <Typography component="span" sx={{ color: color, flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+            valueTypography = <Typography component="span" sx={{ color: color, flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>;
         } else {
             displayValue = 'N/A';
-            valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+            valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>;
         }
       } else if (key === 'nextFundingTime' || key === 'deliveryTime') {
         displayValue = formatTimestamp(String(value));
-        valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
+        valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>;
       }
 
       return (
@@ -378,7 +378,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                   padding: '4px 0'
               }}>
                   <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{camelToTitleCase(key)}</Typography>
-                  <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{String(value)}</Typography>
+                  <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{String(value)}</Typography>
               </Box>
             ))}
           </Box>
@@ -412,7 +412,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                             padding: '4px 0'
                         }}>
                             <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{camelToTitleCase(key)}</Typography>
-                            <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>
+                            <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{displayValue}</Typography>
                         </Box>
                     );
                 })}
@@ -518,8 +518,8 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                             marginRight: { xs: 0, sm: '16px' },
                             padding: '4px 8px'
                         }}>
-                          <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>Category</Typography>
-                          <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{decodeURIComponent(category)}</Typography>
+                          <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', textAlign: 'left' }}>Category</Typography>
+                          <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', }}>{decodeURIComponent(category)}</Typography>
                         </Box>
                         {renderTickerDetails(ticker, instrumentInfo?.priceFilter?.tickSize)}
                       </Box>
