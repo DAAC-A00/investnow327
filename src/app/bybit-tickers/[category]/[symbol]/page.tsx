@@ -81,7 +81,7 @@ const formatTimestamp = (timestamp: string | undefined): string => {
 
 const REFRESH_INTERVAL = 1000;
 const PRICE_EFFECT_DURATION = 200;
-const FUNDING_HISTORY_LIMIT = 15;
+const FUNDING_HISTORY_LIMIT = 300;
 
 interface TickerDetailPageProps {
   params: {
