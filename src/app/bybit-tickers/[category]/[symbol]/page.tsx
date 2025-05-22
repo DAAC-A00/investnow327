@@ -27,6 +27,13 @@ interface DisplayTicker extends BybitTicker {
   priceEffect?: 'up' | 'down' | 'flat';
 }
 
+// Define a new interface for processed funding history entries
+interface ProcessedFundingHistoryEntry extends FundingHistoryEntry {
+  formattedFundingRate: string;
+  isNegative: boolean;
+}
+
+
 const formatNumberWithCommas = (value: string | number | undefined, tickSize?: string): string => {
   if (value === undefined || value === null) return 'N/A';
   let numStr = String(value);
@@ -100,7 +107,8 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
   const { setAppbarTitle, setLeftButtonAction, setShowMenuButton } = useNavigationStore();
   const [ticker, setTicker] = useState<DisplayTicker | null>(null);
   const [instrumentInfo, setInstrumentInfo] = useState<BybitInstrumentInfo | null>(null);
-  const [fundingHistory, setFundingHistory] = useState<FundingHistoryEntry[]>([]);
+  // Use the new interface for funding history state
+  const [fundingHistory, setFundingHistory] = useState<ProcessedFundingHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [instrumentError, setInstrumentError] = useState<string | null>(null);
@@ -176,7 +184,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     }
   }, [category, symbol]);
 
-  const fetchFundingHistoryData = useCallback(async (): Promise<void> => {
+ const fetchFundingHistoryData = useCallback(async (): Promise<void> => {
     if (category === 'spot') {
       setLoadingFundingHistory(false);
       setFundingHistory([]);
@@ -187,7 +195,18 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     try {
       const decodedSymbol = decodeURIComponent(symbol);
       const history = await fetchFundingRateHistory(category as 'linear' | 'inverse', decodedSymbol, FUNDING_HISTORY_LIMIT);
-      setFundingHistory(history);
+      
+      // Process the history data here
+      const processedHistory = history.map(entry => {
+        const rate = parseFloat(entry.fundingRate);
+        const percentageRate = (rate).toFixed(4);
+        return {
+          ...entry,
+          formattedFundingRate: `${rate >= 0 ? '+' : ''}${percentageRate}%`,
+          isNegative: rate < 0,
+        };
+      });
+      setFundingHistory(processedHistory);
     } catch (err: any) {
       console.error(`Error fetching funding rate history for ${category}/${symbol}:`, err.message);
       setFundingHistoryError(err.message || 'An unknown error occurred while fetching funding rate history');
@@ -289,7 +308,6 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         displayValue = formatNumberWithCommas(value, tickSize);
          valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
       } else if (['openInterest', 'openInterestValue', 'ask1Size', 'bid1Size', 'basis', 'fundingRate'].includes(key)) {
-        // Added fundingRate here for consistent numeric formatting if needed, though it's often a small decimal
         displayValue = formatNumberWithCommas(value); 
          valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
       } else if (key === 'volume24h' || key === 'turnover24h') {
@@ -297,8 +315,8 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
          valueTypography = <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right' }}>{displayValue}</Typography>;
       } else if (key === 'price24hPcnt') {
         if (typeof value === 'string') {
-            displayValue = value.endsWith('%') ? value : `${value}%`;
             const numericPart = parseFloat(value.replace(/[+%]/g, ''));
+            displayValue = (numericPart > 0 ? '+' : '') + numericPart.toFixed(2) + '%';
             let color = 'text.primary';
             if (!isNaN(numericPart)) {
                 if (numericPart > 0) color = 'success.main';
@@ -412,7 +430,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     );
   };
 
-  const renderFundingRateHistoryDetails = (history: FundingHistoryEntry[]) => {
+  const renderFundingRateHistoryDetails = (history: ProcessedFundingHistoryEntry[]) => {
     if (category === 'spot') return null;
     if (loadingFundingHistory) {
       return (
@@ -441,8 +459,15 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                 secondaryTypographyProps={{ variant: 'caption' }}
                 sx={{flex: '1 1 auto', textAlign: 'left'}}
               />
-               <Typography variant="body2" sx={{flex: '0 0 auto', textAlign: 'right', fontWeight: parseFloat(entry.fundingRate) < 0 ? 'bold' : 'normal', color: parseFloat(entry.fundingRate) < 0 ? theme.palette.error.main : theme.palette.success.main }}>
-                {(parseFloat(entry.fundingRate) * 100).toFixed(4)}%
+               <Typography 
+                variant="body2" 
+                sx={{
+                    flex: '0 0 auto', 
+                    textAlign: 'right', 
+                    fontWeight: entry.isNegative ? 'bold' : 'normal', 
+                    color: entry.isNegative ? theme.palette.error.main : theme.palette.success.main 
+                }}>
+                {entry.formattedFundingRate}
               </Typography>
             </ListItem>
           ))}

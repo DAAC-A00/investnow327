@@ -1,5 +1,3 @@
-// api.ts
-
 import { BybitApiResponse, BybitTicker, BybitApiResponseTicker, BybitInstrumentInfoResponse, BybitInstrumentInfo, BybitFundingHistoryResponse, FundingHistoryEntry } from './types';
 
 const BASE_API_URL = 'https://api.bybit.com/v5/market';
@@ -113,10 +111,34 @@ throw new Error(errorData.retMsg || `Failed to fetch funding rate history for ${
 }
 const data: BybitFundingHistoryResponse = await response.json();
 if (data.retCode === 0 && data.result && data.result.list) {
-return data.result.list;
+    const processedList = data.result.list.map(entry => {
+    const originalRateStr = entry.fundingRate;
+    const numericRate = parseFloat(originalRateStr);
+    let newFundingRateStr = originalRateStr; // Default to original if parsing fails
+
+    if (!isNaN(numericRate)) {
+        const multipliedRate = numericRate * 100;
+        // Format to 4 decimal places
+        const formattedRateValue = multipliedRate.toFixed(8);
+        if (multipliedRate >= 0) {
+        newFundingRateStr = `+${formattedRateValue}`;
+        } else {
+        // Negative numbers from toFixed already include "-", so no need to add it explicitly
+        newFundingRateStr = formattedRateValue; 
+        }
+    } else {
+        console.warn(`Invalid fundingRate format: "${originalRateStr}" for symbol ${symbol}. Using original value.`);
+    }
+    
+    return {
+        ...entry,
+        fundingRate: newFundingRateStr, // Stores e.g., "+0.0100" or "-0.0200"
+    };
+    });
+    return processedList;
 } else if (data.retCode === 0 && (!data.result || !data.result.list)) {
-// Handle cases where API returns success but list is empty or missing (e.g. spot symbols)
-return []; 
+    // Handle cases where API returns success but list is empty or missing
+    return []; 
 }
 throw new Error(data.retMsg || `Invalid API response structure for funding rate history (symbol: ${symbol})`);
 }
