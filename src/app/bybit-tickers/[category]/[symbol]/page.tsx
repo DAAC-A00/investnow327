@@ -32,10 +32,7 @@ interface DisplayTicker extends BybitTicker {
 // Updated interface for processed funding history entries
 interface ProcessedFundingHistoryEntry {
   fundingRateTimestamp: string;
-  // Stores the 8-hour rate as a number (already multiplied by 100 from api.ts)
-  // e.g., if api.ts returns "+0.0100" for fundingRate, this will be 0.01
   numericRate8h: number; 
-  // Stores the original string from api.ts, e.g., "+0.0100"
   originalFundingRateFromApi: string; 
   isNegative: boolean;
 }
@@ -212,26 +209,23 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     setFundingHistoryError(null);
     try {
       const decodedSymbol = decodeURIComponent(symbol);
-      // fetchFundingRateHistory from api.ts now returns FundingHistoryEntry[] 
-      // where fundingRate is a string like "+0.0100" or "-0.0200"
       const historyFromApi = await fetchFundingRateHistory(category as 'linear' | 'inverse', decodedSymbol, FUNDING_HISTORY_LIMIT);
       
       const processedHistory: ProcessedFundingHistoryEntry[] = historyFromApi.map(entry => {
-        const originalRateStr = entry.fundingRate; // This is like "+0.0100"
-        const numericRate = parseFloat(originalRateStr); // Parses to 0.01 or -0.02
+        const originalRateStr = entry.fundingRate;
+        const numericRate = parseFloat(originalRateStr);
         
         let isActuallyNegative = false;
         if (!isNaN(numericRate)) {
             isActuallyNegative = numericRate < 0;
         } else {
-            // Fallback for parsing failure, though api.ts should format correctly
             isActuallyNegative = originalRateStr.startsWith('-');
         }
 
         return {
           fundingRateTimestamp: entry.fundingRateTimestamp,
-          numericRate8h: isNaN(numericRate) ? 0 : numericRate, // Store the number like 0.01 (which is 0.01%)
-          originalFundingRateFromApi: originalRateStr, // Store "+0.0100"
+          numericRate8h: isNaN(numericRate) ? 0 : numericRate, 
+          originalFundingRateFromApi: originalRateStr, 
           isNegative: isActuallyNegative,
         };
       });
@@ -317,44 +311,40 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         'usdIndexPrice',
     ];
     
-    const baseSx: any = { flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', display: 'inline-block' }; // Use any for flexibility or define a more complex type
+    const valueBaseSx: any = { display: 'inline-block', padding: '0 4px', border: '1px solid transparent' };
 
     return orderedKeys
         .filter(key => tickerToRender[key] !== undefined && tickerToRender[key] !== null && String(tickerToRender[key]).trim() !== '')
         .map((key) => {
       const value = tickerToRender[key];
       let displayValue = String(value);
-      let typographySx = { ...baseSx }; // Start with baseSx
+      let valueSpecificSx = { ...valueBaseSx }; 
 
       if (key === 'lastPrice') {
         displayValue = formatNumberWithCommas(value, tickSize);
-        typographySx = {
-            ...baseSx, // Ensure all base properties are carried over
-            border: tickerToRender.priceEffect === 'up' ? `1px solid ${theme.palette.success.main}` 
+        valueSpecificSx.border = tickerToRender.priceEffect === 'up' ? `1px solid ${theme.palette.success.main}` 
                            : tickerToRender.priceEffect === 'down' ? `1px solid ${theme.palette.error.main}` 
-                           : '1px solid transparent',
-        };
+                           : '1px solid transparent';
       } else if (['bid1Price', 'ask1Price', 'usdIndexPrice', 'indexPrice', 'markPrice', 'prevPrice24h', 'highPrice24h', 'lowPrice24h', 'prevPrice1h', 'predictedDeliveryPrice'].includes(key)) {
         displayValue = formatNumberWithCommas(value, tickSize);
       } else if (['openInterest', 'openInterestValue', 'ask1Size', 'bid1Size', 'basis'].includes(key)) {
         displayValue = formatNumberWithCommas(value);
-      } else if (key === 'fundingRate') { // fundingRate from ticker is a direct number string, format it with sign and % for ticker display
+      } else if (key === 'fundingRate') {
         const numericRate = parseFloat(value as string);
         if(!isNaN(numericRate)){
             const rateTimes100 = numericRate * 100;
             displayValue = (rateTimes100 >= 0 ? '+' : '') + rateTimes100.toFixed(4) + '%';
-            typographySx = { ...typographySx, color: rateTimes100 < 0 ? theme.palette.error.main : theme.palette.success.main };
+            valueSpecificSx.color = rateTimes100 < 0 ? theme.palette.error.main : theme.palette.success.main;
         } else {
             displayValue = 'N/A';
         }
-      }else if (key === 'volume24h' || key === 'turnover24h') {
+      } else if (key === 'volume24h' || key === 'turnover24h') {
          displayValue = formatVolumeOrTurnover(value);
       } else if (key === 'price24hPcnt') {
-        // value for price24hPcnt from fetchBybitTickers is already like "+2.50" or "-1.00"
-        const numericPart = parseFloat(String(value).replace(/[+%]/g, '')); // remove sign for color check
-        displayValue = String(value) + '%'; // Append % sign
+        const numericPart = parseFloat(String(value).replace(/[+%]/g, ''));
+        displayValue = String(value) + '%';
         if (!isNaN(numericPart)) {
-            typographySx = { ...typographySx, color: numericPart > 0 ? theme.palette.success.main : numericPart < 0 ? theme.palette.error.main : 'text.primary' };
+            valueSpecificSx.color = numericPart > 0 ? theme.palette.success.main : numericPart < 0 ? theme.palette.error.main : 'text.primary';
         }
       } else if (key === 'nextFundingTime' || key === 'deliveryTime') {
         displayValue = formatTimestamp(String(value));
@@ -372,7 +362,9 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
             padding: '4px 0'
         }}>
             <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{key.replace(/([A-Z])/g, ' $1').trim()}</Typography>
-            <Typography component="span" sx={typographySx}>{displayValue}</Typography>
+            <Box sx={{ flexGrow: 1, textAlign: 'right' }}>
+                 <Typography component="span" sx={valueSpecificSx}>{displayValue}</Typography>
+            </Box>
         </Box>
       );
     });
@@ -388,7 +380,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
         'launchTime', 'deliveryTime', 'issueTime', 'fundingInterval', 'unifiedMarginTrade', 'marketStatus'
     ];
     
-    const baseSx: any = { flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', display: 'inline-block' }; // Use any for flexibility
+    const valueBaseSx: any = { display: 'inline-block', padding: '0 4px', border: '1px solid transparent' };
 
     const renderNestedObject = (obj: any, title: string) => {
       if (!obj || typeof obj !== 'object' || Object.keys(obj).length === 0) return null;
@@ -408,7 +400,9 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                   padding: '4px 0'
               }}>
                   <Typography variant="body2" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{camelToTitleCase(key)}</Typography>
-                  <Typography component="span" sx={baseSx}>{String(value)}</Typography>
+                  <Box sx={{ flexGrow: 1, textAlign: 'right' }}>
+                    <Typography component="span" sx={valueBaseSx}>{String(value)}</Typography>
+                  </Box>
               </Box>
             ))}
           </Box>
@@ -442,7 +436,9 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                             padding: '4px 0'
                         }}>
                             <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight: 1, textAlign: 'left' }}>{camelToTitleCase(key)}</Typography>
-                            <Typography component="span" sx={baseSx}>{displayValue}</Typography>
+                            <Box sx={{ flexGrow: 1, textAlign: 'right' }}>
+                                <Typography component="span" sx={valueBaseSx}>{displayValue}</Typography>
+                            </Box>
                         </Box>
                     );
                 })}
@@ -479,10 +475,10 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     return (
       <Box sx={{ mt: 3 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb:0 }}> </Typography>
+            <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb:0 }}>Funding Rate History</Typography>
             <FormControlLabel
                 control={<Switch checked={showAnnualizedRate} onChange={handleAnnualizedRateToggle} />}
-                label={""}
+                label={showAnnualizedRate ? "연" : "개별"}
                 sx={{mr: 0}} />
         </Box>
         <List dense sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
@@ -492,16 +488,23 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                 : entry.numericRate8h;
             
             const displayRateString = (rateToDisplay >= 0 ? '+' : '') + rateToDisplay.toFixed(4) + '%';
-            // The color and font weight for both the main rate and the base rate secondary text 
-            // should be based on the original 8-hour rate (entry.isNegative)
-            const color = entry.isNegative ? theme.palette.error.main : theme.palette.success.main; 
-            const fontWeight = 'normal';
+            
+            // Determine color and font weight based on the original 8h rate for consistency
+            const baseRateIsNegative = entry.isNegative;
+            const color = baseRateIsNegative ? theme.palette.error.main : theme.palette.success.main; 
+            const fontWeight = baseRateIsNegative ? 'bold' : 'normal';
+
+            // For the main display string, the negativity check should be on rateToDisplay for annualized scenario
+            const displayRateIsNegative = rateToDisplay < 0;
+            const displayFontWeight = displayRateIsNegative ? 'bold' : 'normal';
+            const displayColor = displayRateIsNegative ? theme.palette.error.main : theme.palette.success.main;
+
 
             return (
                 <ListItem key={index} divider={index < history.length -1 } sx={{ display: 'flex', justifyContent: 'space-between', paddingY: '2px'}}>
                 <ListItemText 
                     primary={formatTimestamp(entry.fundingRateTimestamp)} 
-                    secondary={<Typography component="span" variant="caption" sx={{ color: color, fontWeight: fontWeight }}>{`${entry.originalFundingRateFromApi}%`}</Typography>}
+                    secondary={<Typography component="span" variant="caption" sx={{ color: color, fontWeight: fontWeight }}>{`Base (8h): ${entry.originalFundingRateFromApi}%`}</Typography>}
                     primaryTypographyProps={{ variant: 'body2' }}
                     sx={{flex: '1 1 auto', textAlign: 'left'}}
                 />
@@ -510,8 +513,8 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                     sx={{
                         flex: '0 0 auto', 
                         textAlign: 'right', 
-                        fontWeight: fontWeight, 
-                        color: color 
+                        fontWeight: displayFontWeight, // Use fontWeight based on displayed rate
+                        color: displayColor // Use color based on displayed rate
                     }}>
                     {displayRateString}
                 </Typography>
@@ -566,8 +569,9 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                             padding: '4px 8px' // Matched padding from other items
                         }}>
                           <Typography variant="subtitle1" component="span" sx={{ fontWeight: 'bold', marginRight:1, textAlign: 'left' }}>Category</Typography>
-                          {/* Ensured category value also uses baseSx for consistency */}
-                          <Typography component="span" sx={{ flexGrow: 1, textAlign: 'right', border: '1px solid transparent', padding: '0 4px', display: 'inline-block' }}>{decodeURIComponent(category)}</Typography>
+                           <Box sx={{ flexGrow: 1, textAlign: 'right' }}>
+                                <Typography component="span" sx={{ display: 'inline-block', padding: '0 4px', border: '1px solid transparent' }}>{decodeURIComponent(category)}</Typography>
+                           </Box>
                         </Box>
                         {renderTickerDetails(ticker, instrumentInfo?.priceFilter?.tickSize)}
                       </Box>
@@ -605,7 +609,6 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                     {activeTab === 1 && (
                         <>
                             {renderFundingRateHistoryDetails(fundingHistory)}
-                            {/* Loading/Error specifically for funding history if it hasn't loaded with main data or independently */} 
                             {loadingFundingHistory && !fundingHistoryError && (
                                 <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px', mt: 2 }}>
                                     <CircularProgress size={30} />
