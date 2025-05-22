@@ -431,7 +431,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
     return (
       <Box sx={{ mt: 3 }}>
         <Typography variant="h5" gutterBottom sx={{ textAlign: 'center', fontWeight: 'bold' }}>Funding Rate History</Typography>
-        <List dense sx={{ maxHeight: 300, overflow: 'auto', border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
+        <List dense sx={{ /*maxHeight: 300, overflow: 'auto',*/ border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
           {history.map((entry, index) => (
             <ListItem key={index} divider={index < history.length -1 } sx={{ display: 'flex', justifyContent: 'space-between', paddingY: '2px'}}>
               <ListItemText 
