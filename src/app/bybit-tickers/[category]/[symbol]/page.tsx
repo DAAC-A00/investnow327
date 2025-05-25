@@ -478,7 +478,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
             <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold', mb:0 }}>Funding Rate History</Typography>
             <FormControlLabel
                 control={<Switch checked={showAnnualizedRate} onChange={handleAnnualizedRateToggle} />}
-                label={showAnnualizedRate ? "연" : "개별"}
+                label={""}
                 sx={{mr: 0}} />
         </Box>
         <List dense sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
@@ -504,7 +504,7 @@ export default function TickerDetailPage({ params }: TickerDetailPageProps) {
                 <ListItem key={index} divider={index < history.length -1 } sx={{ display: 'flex', justifyContent: 'space-between', paddingY: '2px'}}>
                 <ListItemText 
                     primary={formatTimestamp(entry.fundingRateTimestamp)} 
-                    secondary={<Typography component="span" variant="caption" sx={{ color: color, fontWeight: fontWeight }}>{`Base (8h): ${entry.originalFundingRateFromApi}%`}</Typography>}
+                    secondary={<Typography component="span" variant="caption" sx={{ color: color, fontWeight: fontWeight }}>{`${entry.originalFundingRateFromApi}%`}</Typography>}
                     primaryTypographyProps={{ variant: 'body2' }}
                     sx={{flex: '1 1 auto', textAlign: 'left'}}
                 />
