@@ -19,6 +19,7 @@ import { BybitTicker, BybitInstrumentInfo, FundingHistoryEntry } from '@/service
 import { fetchBybitTickers, getInstrumentsInfo, fetchFundingRateHistory } from '@/services/bybit/api';
 import { TickerCategory } from '@/stores/sortStore';
 import { useNavigationStore } from '@/stores/navigationStore';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface DisplayTicker extends BybitTicker {
   priceEffect?: 'up' | 'down' | 'flat';
@@ -76,7 +77,7 @@ const formatVolumeOrTurnover = (value: string | number | undefined): string => {
   }
 };
 
-const formatTimestamp = (timestamp: string | undefined): string => {
+const formatTimestamp = (timestamp: string | undefined, showFullDate: boolean = true): string => {
     if (!timestamp) return 'N/A';
     const numTimestamp = parseInt(timestamp, 10);
     if (isNaN(numTimestamp) || numTimestamp === 0) return 'N/A';
@@ -88,7 +89,10 @@ const formatTimestamp = (timestamp: string | undefined): string => {
         const hours = String(date.getHours()).padStart(2, '0');
         const minutes = String(date.getMinutes()).padStart(2, '0');
         const seconds = String(date.getSeconds()).padStart(2, '0');
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        
+        return showFullDate 
+            ? `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+            : `${year}-${month}`;
     } catch (e) {
         return 'Invalid Date';
     }
@@ -148,6 +152,7 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
   const [loadingFundingHistory, setLoadingFundingHistory] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [showAnnualizedRate, setShowAnnualizedRate] = useState(true);
+  const [showChart, setShowChart] = useState(false);
 
 
   const prevTickerRef = useRef<BybitTicker | null>(null);
@@ -478,6 +483,51 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
     );
   };
 
+  const renderFundingRateHeader = () => {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        mb: 2
+      }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+          flex: 1
+        }}>
+          <FormControlLabel
+            control={<Switch checked={showChart} onChange={(e) => setShowChart(e.target.checked)} />}
+            label=""
+            labelPlacement="end"
+            sx={{ ml: 0 }}
+          />
+        </Box>
+        <Typography variant="h6" sx={{ 
+          fontWeight: 'bold', 
+          flex: 1, 
+          textAlign: 'center'
+        }}>
+          History
+        </Typography>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          flex: 1
+        }}>
+          <FormControlLabel
+            control={<Switch checked={showAnnualizedRate} onChange={handleAnnualizedRateToggle} />}
+            label=""
+            labelPlacement="start"
+            sx={{ mr: 0 }}
+          />
+        </Box>
+      </Box>
+    );
+  };
+
   const renderFundingRateHistoryDetails = (history: ProcessedFundingHistoryEntry[]) => {
     if (category === 'spot') return null;
     if (loadingFundingHistory) {
@@ -496,13 +546,7 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
 
     return (
       <Box sx={{ mt: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold', mb:0 }}>History</Typography>
-            <FormControlLabel
-              control={<Switch checked={showAnnualizedRate} onChange={handleAnnualizedRateToggle} />}
-              label={""}
-              sx={{mr: 0}} />
-        </Box>
+        {renderFundingRateHeader()}
         <Box sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 0, overflow: 'hidden' }}>
           {history.map((entry, index) => {
             const rateToDisplay = showAnnualizedRate 
@@ -542,6 +586,66 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
                 </Box>
             );
           })}
+        </Box>
+      </Box>
+    );
+  };
+
+  const renderFundingRateChart = (data: ProcessedFundingHistoryEntry[]) => {
+    if (category === 'spot' || loadingFundingHistory) return null;
+    if (fundingHistoryError) {
+      return <Alert severity="warning" sx={{ marginY: 2 }}>Failed to load funding rate history: {fundingHistoryError}</Alert>;
+    }
+    if (!data || data.length === 0) {
+      return <Typography sx={{ textAlign: 'center', color: 'text.secondary', mt: 2 }}>No funding rate history available for charting.</Typography>;
+    }
+
+    const chartData = data.map(entry => ({
+      ...entry,
+      displayRate: showAnnualizedRate ? entry.numericRate8h * 3 * 365 : entry.numericRate8h
+    }));
+
+    return (
+      <Box sx={{ mt: 1 }}>
+        {renderFundingRateHeader()}
+        <Box sx={{ mt: 2, height: 300 }}>
+          <ResponsiveContainer>
+            <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="fundingRateTimestamp" 
+                tickFormatter={(timestamp) => {
+                  const index = chartData.findIndex(item => item.fundingRateTimestamp === timestamp);
+                  return formatTimestamp(timestamp, index % 6 === 0);
+                }}
+                interval={5}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis 
+                tickFormatter={(value) => `${value.toFixed(2)}%`}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip 
+                formatter={(value: number) => [`${value.toFixed(4)}%`, showAnnualizedRate ? 'Annualized Rate' : 'Funding Rate']}
+                labelFormatter={(label) => formatTimestamp(label as string, true)}
+              />
+              <Bar 
+                dataKey="displayRate"
+                name={showAnnualizedRate ? 'Annualized Rate' : 'Funding Rate'}
+              >
+                {
+                  chartData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`}
+                      fill={entry.displayRate >= 0 ? theme.palette.success.main : theme.palette.error.main}
+                    />
+                  ))
+                }
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </Box>
       </Box>
     );
@@ -622,7 +726,7 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
           {category !== 'spot' && (
             <TabPanel value={tabValue} index={1}>
               <Box sx={{ mt: 1 }}>
-                {renderFundingRateHistoryDetails(fundingHistory)}
+                {showChart ? renderFundingRateChart(fundingHistory) : renderFundingRateHistoryDetails(fundingHistory)}
                 {loadingFundingHistory && !fundingHistoryError && (
                   <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px', mt: 2 }}>
                     <CircularProgress size={30} />
