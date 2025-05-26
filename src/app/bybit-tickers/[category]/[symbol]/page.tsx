@@ -484,6 +484,14 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
   };
 
   const renderFundingRateHeader = () => {
+    // 평균값 계산
+    const average = fundingHistory.reduce((acc, curr) => {
+      const rate = showAnnualizedRate ? curr.numericRate8h * 3 * 365 : curr.numericRate8h;
+      return acc + rate;
+    }, 0) / (fundingHistory.length || 1);
+
+    const displayAverage = `${average >= 0 ? '+' : ''}${average.toFixed(4)}%`;
+
     return (
       <Box sx={{ 
         display: 'flex', 
@@ -507,9 +515,10 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
         <Typography variant="h6" sx={{ 
           fontWeight: 'bold', 
           flex: 1, 
-          textAlign: 'center'
+          textAlign: 'center',
+          color: average >= 0 ? theme.palette.success.main : theme.palette.error.main
         }}>
-          History
+          {displayAverage}
         </Typography>
         <Box sx={{ 
           display: 'flex', 
