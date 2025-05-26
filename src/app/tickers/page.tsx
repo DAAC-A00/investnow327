@@ -47,11 +47,11 @@ export default function TickersHubPage() {
         }}
       >
         <Image 
-          src="/bybit_logo.svg" // Assuming your logo is here
+          src="/images/exchangeBybit.jpeg"
           alt="Bybit Logo"
-          width={40} // Adjust width as needed
-          height={40} // Adjust height as needed
-          style={{ marginRight: theme.spacing(1.5) }} // Add some space between logo and text
+          width={40}
+          height={40}
+          style={{ marginRight: theme.spacing(1.5), }}
         />
         <Typography variant="h4" component="h1">
           Bybit
