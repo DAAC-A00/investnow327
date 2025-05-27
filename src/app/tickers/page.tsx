@@ -17,7 +17,7 @@ interface TickerLink {
   path: string;
 }
 
-const tickerPages: TickerLink[] = [
+const bybitTickerPages: TickerLink[] = [
   {
     name: 'Spot',
     path: '/tickers/bybit/spot',
@@ -32,12 +32,20 @@ const tickerPages: TickerLink[] = [
   },
 ];
 
+const bithumbTickerPages: TickerLink[] = [
+  {
+    name: 'Spot',
+    path: '/tickers/bithumb/spot',
+  },
+];
+
 export default function TickersHubPage() {
   const router = useRouter();
   const theme = useTheme();
 
   return (
     <Container maxWidth="sm" sx={{ py: theme.spacing(4) }}>
+      {/* Bybit Section */}
       <Box 
         sx={{ 
           display: 'flex', 
@@ -63,13 +71,59 @@ export default function TickersHubPage() {
           display: 'flex',
           flexDirection: 'column',
           gap: theme.spacing(2),
+          mb: theme.spacing(5),
         }}
       >
-        {tickerPages.map((page) => (
+        {bybitTickerPages.map((page) => (
           <Button
             key={page.path}
             variant="contained"
             color="primary"
+            fullWidth
+            onClick={() => router.push(page.path)}
+            sx={{
+              py: theme.spacing(1.5),
+              fontSize: '1rem',
+            }}
+          >
+            {page.name}
+          </Button>
+        ))}
+      </Box>
+
+      {/* Bithumb Section */}
+      <Box 
+        sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center', 
+          mb: theme.spacing(3) 
+        }}
+      >
+        <Image 
+          src="/images/exchangeBithumb.png"
+          alt="Bithumb Logo"
+          width={40}
+          height={40}
+          style={{ marginRight: theme.spacing(1.5), }}
+        />
+        <Typography variant="h4" component="h1">
+          Bithumb
+        </Typography>
+      </Box>
+      
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing(2),
+        }}
+      >
+        {bithumbTickerPages.map((page) => (
+          <Button
+            key={page.path}
+            variant="contained"
+            color="secondary"
             fullWidth
             onClick={() => router.push(page.path)}
             sx={{
