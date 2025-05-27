@@ -92,7 +92,7 @@ const formatTimestamp = (timestamp: string | undefined, showFullDate: boolean = 
         
         return showFullDate 
             ? `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
-            : `${year}-${month}`;
+            : `${month}-${day}`;
     } catch (e) {
         return 'Invalid Date';
     }
@@ -625,7 +625,7 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
                 dataKey="fundingRateTimestamp" 
                 tickFormatter={(timestamp) => {
                   const index = chartData.findIndex(item => item.fundingRateTimestamp === timestamp);
-                  return formatTimestamp(timestamp, index % 6 === 0);
+                  return formatTimestamp(timestamp, false);
                 }}
                 interval={5}
                 angle={-45}
@@ -638,7 +638,7 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
               />
               <Tooltip 
                 formatter={(value: number) => [`${value.toFixed(4)}%`, showAnnualizedRate ? 'Annualized Rate' : 'Funding Rate']}
-                labelFormatter={(label) => formatTimestamp(label as string, true)}
+                labelFormatter={(label) => formatTimestamp(label as string, )}
               />
               <Bar 
                 dataKey="displayRate"
