@@ -453,7 +453,7 @@ export default function BybitTickerPageComponent({ category, title }: BybitTicke
                 <React.Fragment key={ticker.symbol}>
                   <ListItem 
                     component={Link} 
-                    href={`/bybit-tickers/${category}/${ticker.symbol}`}
+                    href={`/tickers/bybit/${category}/${ticker.symbol}`}
                     sx={{ py: 1.5, '&:hover': { backgroundColor: theme.palette.action.hover }, textDecoration: 'none', color: 'inherit', cursor: 'pointer' }}
                   >
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', width: '100%', gap: 1 }}>
