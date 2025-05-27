@@ -611,10 +611,26 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
 
     const chartData = [...data]
       .reverse()
-      .map(entry => ({
-      ...entry,
-      displayRate: showAnnualizedRate ? entry.numericRate8h * 3 * 365 : entry.numericRate8h
-    }));
+      .map((entry, index, array) => {
+        const rate = showAnnualizedRate ? entry.numericRate8h * 3 * 365 : entry.numericRate8h;
+        
+        // 누적 수익률 계산
+        const cumulativeReturn = array
+          .slice(0, index + 1)
+          .reduce((acc, curr) => {
+            const currRate = showAnnualizedRate ? curr.numericRate8h * 3 * 365 : curr.numericRate8h;
+            return acc + (currRate / 100);  // 백분율을 소수로 변환
+          }, 0) * 100;  // 다시 백분율로 변환
+
+        // 데이터 수로 나누어 평균화
+        const finalCumulativeReturn = showAnnualizedRate ? cumulativeReturn / (index + 1) : cumulativeReturn;
+        
+        return {
+          ...entry,
+          displayRate: rate,
+          cumulativeReturn: parseFloat(finalCumulativeReturn.toFixed(4))
+        };
+      });
 
     return (
       <Box sx={{ mt: 1 }}>
@@ -626,7 +642,6 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
               <XAxis 
                 dataKey="fundingRateTimestamp" 
                 tickFormatter={(timestamp) => {
-                  const index = chartData.findIndex(item => item.fundingRateTimestamp === timestamp);
                   return formatTimestamp(timestamp, false);
                 }}
                 interval={5}
@@ -639,18 +654,59 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
                 domain={['auto', 'auto']}
               />
               <Tooltip 
-                formatter={(value: number) => [`${value.toFixed(4)}%`, showAnnualizedRate ? 'Annualized Rate' : 'Funding Rate']}
-                labelFormatter={(label) => formatTimestamp(label as string, )}
+                formatter={(value: number) => [`${value.toFixed(4)}%`, showAnnualizedRate ? 'Annualized' : 'Funding']}
+                labelFormatter={(label) => formatTimestamp(label as string)}
               />
               <Bar 
                 dataKey="displayRate"
-                name={showAnnualizedRate ? 'Annualized Rate' : 'Funding Rate'}
+                name={showAnnualizedRate ? 'Annualized' : 'Funding'}
               >
                 {
                   chartData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`}
                       fill={entry.displayRate >= 0 ? theme.palette.success.main : theme.palette.error.main}
+                    />
+                  ))
+                }
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </Box>
+
+        {/* 누적 수익률 차트 */}
+        <Box sx={{ mt: 4, height: 300 }}>
+          <Typography variant="h6" sx={{ textAlign: 'center', mb: 2, fontWeight: 'bold' }}>
+            {showAnnualizedRate ? 'Expected Annual Return' : 'Cumulative Return'}
+          </Typography>
+          <ResponsiveContainer>
+            <BarChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="fundingRateTimestamp" 
+                tickFormatter={(timestamp) => formatTimestamp(timestamp, false)}
+                interval={5}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
+              <YAxis 
+                tickFormatter={(value) => `${value.toFixed(2)}%`}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip 
+                formatter={(value: number) => [`${value.toFixed(4)}%`, 'Return']}
+                labelFormatter={(label) => formatTimestamp(label as string)}
+              />
+              <Bar 
+                dataKey="cumulativeReturn"
+                name="Return"
+              >
+                {
+                  chartData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`}
+                      fill={entry.cumulativeReturn >= 0 ? theme.palette.success.main : theme.palette.error.main}
                     />
                   ))
                 }
