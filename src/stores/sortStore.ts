@@ -1,13 +1,13 @@
 import { create } from 'zustand';
 import { BybitTicker } from '@/services/bybit/types';
 
-export type TickerCategory = 'spot' | 'linear' | 'inverse';
+export type TickerBybitCategory = 'spot' | 'linear' | 'inverse';
 export type SortableField = keyof Pick<BybitTicker, 'symbol' | 'lastPrice' | 'price24hPcnt' | 'volume24h' | 'turnover24h'> | 'none';
 export type SortDirection = 'asc' | 'desc';
 
 interface SortState {
-  sortCriteria: Record<TickerCategory, { field: SortableField; direction: SortDirection }>;
-  setSortCriteria: (category: TickerCategory, field: SortableField, direction: SortDirection) => void;
+  sortCriteria: Record<TickerBybitCategory, { field: SortableField; direction: SortDirection }>;
+  setSortCriteria: (category: TickerBybitCategory, field: SortableField, direction: SortDirection) => void;
 }
 
 const initialSortCriteria: { field: SortableField; direction: SortDirection } = {

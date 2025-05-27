@@ -30,7 +30,7 @@ import TrendingDownIcon from '@mui/icons-material/TrendingDown';
 import { BybitTicker } from '@/services/bybit/types';
 import { fetchBybitTickers } from '@/services/bybit/api';
 import { useSearchStore } from '@/stores/searchStore';
-import { useSortStore, SortableField, SortDirection, TickerCategory } from '@/stores/sortStore';
+import { useSortStore, SortableField, SortDirection, TickerBybitCategory } from '@/stores/sortStore';
 
 const REFRESH_INTERVAL = 1000;
 const PRICE_EFFECT_DURATION = 200;
@@ -40,7 +40,7 @@ interface DisplayTicker extends BybitTicker {
 }
 
 interface BybitTickerPageProps {
-  category: TickerCategory;
+  category: TickerBybitCategory;
   title: string;
 }
 

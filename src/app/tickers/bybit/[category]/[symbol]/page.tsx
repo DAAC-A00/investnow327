@@ -17,7 +17,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { BybitTicker, BybitInstrumentInfo, FundingHistoryEntry } from '@/services/bybit/types';
 import { fetchBybitTickers, getInstrumentsInfo, fetchFundingRateHistory } from '@/services/bybit/api';
-import { TickerCategory } from '@/stores/sortStore';
+import { TickerBybitCategory } from '@/stores/sortStore';
 import { useNavigationStore } from '@/stores/navigationStore';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -104,7 +104,7 @@ const FUNDING_HISTORY_LIMIT = 300;
 
 interface TickerDetailPageProps {
   params: Promise<{
-    category: TickerCategory;
+    category: TickerBybitCategory;
     symbol: string;
   }>;
 }
@@ -136,7 +136,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export default function TickerDetailPage({ params: paramsPromise }: TickerDetailPageProps) {
-  const params = React.use(paramsPromise) as { category: TickerCategory; symbol: string };
+  const params = React.use(paramsPromise) as { category: TickerBybitCategory; symbol: string };
   const { category, symbol } = params;
 
   const theme = useTheme();
@@ -170,7 +170,7 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
 
   const fetchTickerData = useCallback(async (): Promise<void> => {
     try {
-      const tickers = await fetchBybitTickers(category as TickerCategory);
+      const tickers = await fetchBybitTickers(category as TickerBybitCategory);
       const foundTicker = tickers.find(t => t.symbol === decodeURIComponent(symbol));
 
       if (foundTicker) {
