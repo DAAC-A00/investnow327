@@ -609,7 +609,9 @@ export default function TickerDetailPage({ params: paramsPromise }: TickerDetail
       return <Typography sx={{ textAlign: 'center', color: 'text.secondary', mt: 2 }}>No funding rate history available for charting.</Typography>;
     }
 
-    const chartData = data.map(entry => ({
+    const chartData = [...data]
+      .reverse()
+      .map(entry => ({
       ...entry,
       displayRate: showAnnualizedRate ? entry.numericRate8h * 3 * 365 : entry.numericRate8h
     }));
